@@ -176,7 +176,7 @@
   #zoom .zcard .card { width:100%; height:100%; cursor:default; }
   #zoom .zcard .card:hover { transform:none; box-shadow:none; }
   @keyframes zoomIn { from { transform:scale(.4); opacity:0; } to { transform:scale(1); opacity:1; } }
-  #zoom .zside { display:flex; flex-direction:column; gap:10px; min-width:200px; max-width:300px; }
+  #zoom .zside { display:flex; flex-direction:column; gap:10px; min-width:200px; max-width:300px; max-height:92dvh; overflow:auto; }
   #zoom .zt { font-size:13px; color:var(--muted); letter-spacing:1px; margin-bottom:4px; text-align:center; }
   #zoom .zside button { background:linear-gradient(180deg,#1f2a48,#141c33); border:1px solid #3f5a8c; color:#fff; padding:14px 16px; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer; text-align:left; transition:all .15s; }
   #zoom .zside button:hover:not(:disabled) { border-color:var(--gold); filter:brightness(1.2); }
@@ -223,7 +223,15 @@
   /* ================= OVERLAYS ================= */
   .overlay { position:fixed; inset:0; z-index:100; background:rgba(2,4,10,.82); display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px); }
   .overlay.show { display:flex; }
-  .dialog { background:linear-gradient(160deg,#141c33,#0b1020); border:2px solid var(--gold); border-radius:14px; padding:22px; max-width:520px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.8); }
+  .overlay { overflow:auto; }
+  .dialog { background:linear-gradient(160deg,#141c33,#0b1020); border:2px solid var(--gold); border-radius:14px; padding:18px 22px; max-width:520px; width:100%; max-height:94dvh; overflow:auto; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.8); -webkit-overflow-scrolling:touch; }
+  .dialog.withcard { max-width:720px; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto auto; column-gap:18px; text-align:left; align-items:center; }
+  .dialog.withcard h2 { grid-column:1/3; }
+  .dialog.withcard #dlgCard { grid-row:2/4; margin:0; }
+  .dialog.withcard #dlgCard .card { width:min(150px, 28vw); height:auto; aspect-ratio:2/3; }
+  .dialog.withcard p { margin:0 0 10px; font-size:14px; }
+  .dialog.withcard .btns { justify-content:flex-start; }
+  .dialog .dbtn { padding:12px 18px; font-size:14px; }
   .dialog h2 { color:var(--gold); font-size:20px; margin-bottom:8px; letter-spacing:1px; }
   .dialog p { color:#d8e0f0; font-size:13px; line-height:1.5; margin-bottom:14px; }
   .dialog .btns { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
@@ -539,7 +547,8 @@ function cardEl(inst,{faceDown=false,small=true}={}){
   e.addEventListener('mouseenter',()=>showPreview(inst,false)); e.addEventListener('mouseleave',hidePreview);
   return e;
 }
-function showPreview(inst,hidden){ const pv=$('#preview'); pv.innerHTML=''; if(hidden){ const c=cardEl(inst,{faceDown:true,small:false}); c.classList.remove('defpos'); pv.appendChild(c); } else { const c=cardEl(inst,{small:false}); c.classList.remove('defpos'); pv.appendChild(c); } pv.style.display='block'; }
+const HAS_HOVER=matchMedia('(hover:hover) and (pointer:fine)').matches;
+function showPreview(inst,hidden){ if(!HAS_HOVER) return; const pv=$('#preview'); pv.innerHTML=''; if(hidden){ const c=cardEl(inst,{faceDown:true,small:false}); c.classList.remove('defpos'); pv.appendChild(c); } else { const c=cardEl(inst,{small:false}); c.classList.remove('defpos'); pv.appendChild(c); } pv.style.display='block'; }
 function hidePreview(){ $('#preview').style.display='none'; }
 
 const ROWS={oppMons:{y:160,h:120}, oppSpells:{y:302,h:103}, myMons:{y:505,h:115}, mySpells:{y:647,h:100}};
@@ -557,7 +566,8 @@ function renderRow(id,arr,owner,kind){
       if(UI.sel&&UI.sel.inst===inst.inst) c.classList.add('sel');
       c.addEventListener('click',ev=>{ev.stopPropagation(); onFieldClick(owner,kind,i);});
       s.appendChild(c);
-    } else s.addEventListener('click',()=>onEmptyClick(owner,kind,i));
+      s.addEventListener('click',ev=>{ev.stopPropagation(); onFieldClick(owner,kind,i);});
+    } else s.addEventListener('click',ev=>{ev.stopPropagation(); onEmptyClick(owner,kind,i);});
     row.appendChild(s);
   });
 }
@@ -633,7 +643,7 @@ document.addEventListener('click',()=>{ if((UI.mode==='idle'||UI.mode==='pop')&&
 function dialog(title,text,btns,cardInst){
   return new Promise(res=>{
     $('#dlgT').textContent=title; $('#dlgP').innerHTML=text||''; const B=$('#dlgB'); B.innerHTML='';
-    const C=$('#dlgCard'); C.innerHTML=''; if(cardInst){ const c=cardEl(cardInst,{small:false}); c.classList.remove('defpos'); C.appendChild(c); }
+    const C=$('#dlgCard'); C.innerHTML=''; $('#dlg .dialog').classList.toggle('withcard',!!cardInst); if(cardInst){ const c=cardEl(cardInst,{small:false}); c.classList.remove('defpos'); C.appendChild(c); }
     btns.forEach(b=>{ const x=el('button','dbtn'+(b.primary?' primary':''),b.label); x.addEventListener('click',()=>{ $('#dlg').classList.remove('show'); res(b.value); }); B.appendChild(x); });
     $('#dlg').classList.add('show');
   });
@@ -741,7 +751,7 @@ async function onFieldClick(owner,kind,i){
   const inst=arr[i]; if(!inst) return;
   if(UI.mode==='tribute'&&owner==='me'&&kind==='monster'){ const P=UI.pending; if(P.chosen.includes(i)) return; P.chosen.push(i); P.need--; if(P.need<=0) await doSummon('me',P.handIdx,P.pos,P.faceDown,P.chosen); else render(); return; }
   if(UI.mode==='spellTarget'&&kind==='monster'&&owner===UI.pending.side){ if(owner==='me'&&inst.faceDown) return; await resolveSpell('me',UI.pending.handIdx,i); return; }
-  if(UI.mode==='attack'){ if(owner==='ai'&&kind==='monster'){ const att=UI.sel; UI.mode='idle'; UI.sel=null; await playerAttack(att,i); } else if(owner==='me'&&kind==='monster') selectAttacker(inst); return; }
+  if(UI.mode==='attack'){ if(owner==='ai'&&kind==='monster'){ const att=UI.sel; UI.mode='idle'; UI.sel=null; await playerAttack(att,i); } else if(owner==='me'&&kind==='monster'){ if(UI.sel&&UI.sel.inst===inst.inst) clearSel(); else selectAttacker(inst); } return; }
   const viewOnly = owner==='ai' || kind==='spell' || S.turn!=='me' || !(S.phase==='main1'||S.phase==='main2'||S.phase==='battle');
   if(viewOnly){ UI.sel=inst; UI.mode='pop'; openZoom(inst,{hidden:owner==='ai'&&inst.faceDown, title:owner==='ai'?'Karte des Gegners':(kind==='spell'?'Deine verdeckte Karte':'Deine Karte')}); return; }
   if(owner==='me'&&kind==='monster'){
