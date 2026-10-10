@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duellmeister</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#03050c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Duellmeister">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="icon" href="img/icon-192.png">
+<style>
+  :root { --gold:#ffcf5a; --water:#46b6ff; --fire:#ff5e3a; --spell:#3fe08a; --trap:#e06cff; --danger:#ff3b3b; --ok:#4ddc5a; --text:#e9eef8; --muted:#8b98b8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { font-family:'Segoe UI', system-ui, -apple-system, sans-serif; background:#03050c; color:var(--text); overflow:hidden; user-select:none; -webkit-tap-highlight-color:transparent; }
+  button { font-family:inherit; }
+
+  /* ================= STAGE (1536 x 1024, skaliert) ================= */
+  #stage {
+    position:absolute; left:0; top:0; width:1536px; height:1024px;
+    background:url(img/board.png) no-repeat 0 0 / 1536px 1024px;
+    transform-origin:0 0;
+  }
+  .abs { position:absolute; }
+  .cover { position:absolute; background:#07050d; border-radius:8px; }
+
+  /* Gegner */
+  #oppName { left:150px; top:12px; width:330px; height:40px; background:#13060a; font-size:24px; font-weight:800; display:flex; align-items:center; padding-left:6px; letter-spacing:1px; }
+  #oppHand { left:148px; top:50px; width:340px; height:66px; background:#0d0509; display:flex; align-items:center; gap:7px; padding-left:4px; }
+  #oppHand span { width:48px; height:60px; border-radius:4px; background:radial-gradient(circle at 50% 45%, #6a4a1e, #2a1a0a 70%); border:2px solid #d9a84a; flex:none; position:relative; }
+  #oppHand span::after { content:'◈'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#d9a84a; font-size:20px; opacity:.8; }
+  #oppDeckCnt { left:60px; top:302px; width:110px; height:36px; background:#0a0810; }
+  #oppGYCnt { left:60px; top:497px; width:110px; height:36px; background:#0a0810; }
+  .cnt { display:flex; align-items:center; justify-content:center; font-weight:900; font-size:26px; color:#fff; font-family:'Courier New',monospace; }
+  #oppDeckPile { left:62px; top:148px; width:106px; height:135px; }
+  #oppGYPile { left:62px; top:348px; width:106px; height:132px; }
+  #oppInfo { left:598px; top:86px; width:340px; height:46px; background:#0c0a14; display:flex; align-items:center; justify-content:center; gap:10px; font-size:18px; color:#9ad; font-weight:700; white-space:nowrap; }
+  #oppInfo b { color:#fff; font-family:'Courier New',monospace; font-size:24px; }
+
+  .lpbox { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Courier New',monospace; font-weight:900; border-radius:10px; transition:background .2s; }
+  .lpbox .lpv { font-size:40px; color:var(--gold); line-height:1; letter-spacing:1px; text-shadow:0 0 14px rgba(255,207,90,.6); }
+  .lpbox .lpl { font-size:12px; color:#9ad; letter-spacing:3px; margin-top:2px; }
+  .lpbox.hurt { background:rgba(255,59,59,.45) !important; animation:shake .4s; }
+  .lpbox.heal { background:rgba(77,220,90,.45) !important; }
+  .lpbox.targetable { outline:4px solid var(--danger); animation:pulse 1s infinite; cursor:pointer; }
+  #oppLP { left:1352px; top:36px; width:176px; height:84px; background:#0e0710; }
+  #myLP { left:252px; top:940px; width:170px; height:66px; background:#050a16; }
+  #myLP .lpv { font-size:36px; }
+
+  /* Mitte */
+  #vsO { left:596px; top:438px; width:120px; height:50px; background:#130910; color:#ff5e5e; }
+  #vsM { left:830px; top:438px; width:120px; height:50px; background:#0a0f1c; color:#4fb6ff; }
+  .vsn { display:flex; align-items:center; justify-content:center; font-family:'Courier New',monospace; font-weight:900; font-size:40px; }
+  #hint { left:262px; top:428px; width:290px; height:68px; background:rgba(5,8,18,.85); border:1px solid #2a3a5a; border-radius:8px; padding:6px 10px; font-size:14px; color:var(--gold); line-height:1.25; display:flex; flex-direction:column; justify-content:center; }
+  #hint small { color:#c9d3ea; font-size:11.5px; display:block; margin-top:2px; }
+  #miniLog { left:994px; top:428px; width:296px; height:68px; background:rgba(5,8,18,.85); border:1px solid #2a3a5a; border-radius:8px; padding:5px 10px; font-size:11.5px; line-height:1.3; color:#dfe6f5; overflow:hidden; cursor:pointer; }
+  #miniLog .l { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #miniLog .l.ai { color:#ffb3a3; } #miniLog .l.sys { color:var(--gold); } #miniLog .l.me { color:#bfe3ff; }
+  #phaseLbl { left:42px; top:950px; width:200px; height:42px; background:#06091a; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:var(--gold); letter-spacing:1px; }
+
+  /* Slots */
+  .row { position:absolute; left:0; top:0; }
+  .slot { position:absolute; width:178px; border-radius:10px; display:flex; align-items:center; justify-content:center; transition:box-shadow .15s, background .15s; }
+  .slot.targetable { background:rgba(255,59,59,.22); box-shadow:inset 0 0 0 3px var(--danger), 0 0 24px var(--danger); cursor:pointer; animation:pulse 1s infinite; }
+  .slot.selectable { background:rgba(255,207,90,.2); box-shadow:inset 0 0 0 3px var(--gold), 0 0 24px var(--gold); cursor:pointer; animation:pulse 1s infinite; }
+  .slot.hit { animation:hitflash .35s; }
+  @keyframes pulse { 50% { filter:brightness(1.4); } }
+  @keyframes hitflash { 0% { background:#fff; } 100% { background:transparent; } }
+  @keyframes shake { 0%,100% { transform:translate(0,0);} 20% { transform:translate(-6px,3px);} 40% { transform:translate(6px,-3px);} 60% { transform:translate(-4px,2px);} 80% { transform:translate(4px,-2px);} }
+  #stage.shake { animation:shake .4s; }
+
+  /* Hand */
+  #handBg { left:336px; top:756px; width:884px; height:188px; background:#040710; border-radius:10px; }
+  #hand { left:338px; top:766px; width:880px; height:168px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  #hand .card { height:168px; width:112px; flex:none; }
+  #hand .card:hover { transform:translateY(-14px) scale(1.08); z-index:5; }
+  #hand .card.sel { transform:translateY(-16px) scale(1.08); z-index:6; }
+  #hand .card.disabled { filter:brightness(.5); }
+
+  /* Stapel */
+  #myDeck { left:1312px; top:735px; width:180px; height:200px; cursor:default; }
+  #myDeckLbl { left:1322px; top:862px; width:160px; height:34px; background:#1a0e05; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; letter-spacing:2px; color:#ffe7b0; }
+  #myDeckCnt { left:1330px; top:897px; width:144px; height:36px; background:#120a05; }
+  #myDeck.drawable { cursor:pointer; }
+  #myDeck.drawable::after { content:''; position:absolute; inset:-6px; border-radius:14px; animation:deckglow 1.1s infinite; pointer-events:none; }
+  @keyframes deckglow { 50% { box-shadow:0 0 30px 10px rgba(255,207,90,.75); } }
+  #myGY { left:50px; top:768px; width:250px; height:167px; display:flex; align-items:center; justify-content:center; gap:10px; }
+  #myGY .card { height:140px; width:94px; pointer-events:none; }
+  #myGY .gyl { font-size:13px; letter-spacing:2px; color:#9ad; text-align:center; }
+  #myGY .gyl b { display:block; font-size:30px; color:#fff; font-family:'Courier New',monospace; }
+
+  /* Vorschau */
+  #preview { left:44px; top:612px; width:216px; height:324px; display:none; z-index:30; filter:drop-shadow(0 10px 24px rgba(0,0,0,.8)); pointer-events:none; }
+  #preview .card { width:100%; height:100%; cursor:default; }
+
+  /* Buttons */
+  .abtn { position:absolute; border:none; border-radius:10px; font-size:24px; font-weight:800; cursor:pointer; letter-spacing:.5px; transition:filter .15s, transform .1s; color:#fff; }
+  .abtn:hover:not(:disabled) { filter:brightness(1.15); transform:translateY(-1px); }
+  .abtn:disabled { opacity:.45; cursor:not-allowed; filter:grayscale(.5); }
+  #primaryBtn { left:604px; top:944px; width:332px; height:60px; background:linear-gradient(180deg,#ffb020,#ff6a00); color:#1a0a00; clip-path:polygon(6% 0,94% 0,100% 50%,94% 100%,6% 100%,0 50%); }
+  #endTurnBtn { left:998px; top:944px; width:304px; height:60px; background:#0a1024; border:2px solid #3f5a8c; clip-path:polygon(5% 0,95% 0,100% 50%,95% 100%,5% 100%,0 50%); }
+  #helpBtn { left:1468px; top:950px; width:52px; height:52px; border-radius:50%; background:#0a1024; border:2px solid #3f5a8c; font-size:24px; }
+
+  /* ================= KARTEN (Template-Overlays) ================= */
+  .card { position:relative; border-radius:4.5% / 3%; overflow:hidden; cursor:pointer; transition:transform .15s, box-shadow .15s; transform-style:preserve-3d; background:#0a0d18; }
+  .card:hover { transform:translateY(-4px); box-shadow:0 10px 22px rgba(0,0,0,.6); z-index:5; }
+  .card .frame { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
+  .card.fire .frame { filter:hue-rotate(150deg) saturate(1.3) brightness(1.05); }
+  .card .nm { position:absolute; left:7%; top:3.2%; width:71%; height:6.2%; background:#0b1120; display:flex; align-items:center; padding-left:3%; font-family:Georgia,'Times New Roman',serif; font-weight:700; color:#f4f7ff; text-shadow:0 1px 2px #000; font-size:7cqw; letter-spacing:.3px; white-space:nowrap; overflow:hidden; }
+  .card.fire .nm { background:#200b0b; } .card.spell .nm { background:#0a1f17; } .card.trap .nm { background:#200a22; }
+  .card .ty { position:absolute; left:6%; top:9.7%; width:42%; height:3.8%; background:#0c1a30; display:flex; align-items:center; padding-left:3%; font-size:2.9cqw; letter-spacing:.5px; color:#cfe0ff; font-weight:600; white-space:nowrap; overflow:hidden; }
+  .card.fire .ty { background:#2a1010; color:#ffd0c0; } .card.spell .ty { background:#0b2a1e; color:#c9ffe0; } .card.trap .ty { background:#2b0d30; color:#f3c6ff; }
+  .card .stars { position:absolute; left:48.5%; top:10%; width:44%; height:3.6%; background:#0b1120; display:flex; align-items:center; justify-content:flex-end; gap:1%; padding-right:1%; color:var(--gold); font-size:3.6cqw; letter-spacing:-1px; }
+  .card.fire .stars { background:#200b0b; }
+  .card .art { position:absolute; left:6.3%; top:14.6%; width:87.5%; height:44.3%; display:flex; align-items:center; justify-content:center; font-size:30cqw; background:radial-gradient(circle at 50% 40%, rgba(70,182,255,.28), rgba(6,14,32,.92) 70%); text-shadow:0 0 30px rgba(255,255,255,.5); }
+  .card.fire .art { background:radial-gradient(circle at 50% 40%, rgba(255,94,58,.3), rgba(32,8,8,.92) 70%); }
+  .card.spell .art, .card.trap .art { height:51%; background:none; text-shadow:0 0 30px #000, 0 0 10px #000; }
+  .card .tb { position:absolute; left:6%; top:62.8%; width:88%; height:4.3%; background:#0c1322; display:flex; align-items:center; padding-left:5%; font-size:3.4cqw; letter-spacing:1px; color:#fff; font-weight:700; white-space:nowrap; overflow:hidden; }
+  .card.fire .tb { background:#1f0d0d; }
+  .card .tx { position:absolute; left:7%; top:68.3%; width:86%; height:13.5%; background:#0d1424; color:#ffffff; font-size:4.1cqw; line-height:1.35; padding:1.5% 2.5%; overflow:hidden; font-weight:500; text-shadow:0 1px 1px #000; }
+  .card.fire .tx { background:#1e0e0e; }
+  .card.spell .tx, .card.trap .tx { top:75.3%; height:11.6%; font-size:4.3cqw; } .card.spell .tx { background:#0a1a14; } .card.trap .tx { background:#1c0c1e; }
+  .card .atk, .card .def { position:absolute; top:84.7%; height:6.5%; width:20%; background:#0b1120; display:flex; align-items:center; justify-content:center; font-family:'Courier New',monospace; font-weight:900; font-size:6.5cqw; color:#eaf4ff; }
+  .card .atk { left:27%; } .card .def { left:75%; }
+  .card.fire .atk, .card.fire .def { background:#200b0b; }
+  .card.buffed .atk { color:#ffd04d; }
+  /* kleine Darstellung: nur Name, Art, Werte */
+  .card.small .ty, .card.small .stars, .card.small .tb, .card.small .tx { display:none; }
+  .card.small .nm { top:2.8%; height:7%; font-size:9cqw; left:5%; width:90%; justify-content:center; padding:0 2%; background:#0b1120e6; }
+  .card.small .art { top:12%; height:53%; left:4%; width:92%; font-size:42cqw; }
+  .card.small.spell .art, .card.small.trap .art { height:72%; }
+  .card.small .atk, .card.small .def { top:80%; height:11%; width:40%; font-size:12cqw; }
+  .card.small .atk { left:6%; color:#ff9a7a; } .card.small .def { left:54%; color:#8ccaff; }
+  .card.small .lvl { position:absolute; left:4%; top:68%; width:92%; height:10%; display:flex; align-items:center; justify-content:center; color:var(--gold); font-size:8cqw; letter-spacing:-1px; background:#0b1120cc; }
+  .card.small.spell .lvl, .card.small.trap .lvl { top:86%; font-size:9cqw; color:#dfe6f5; letter-spacing:1px; }
+  .card { container-type:size; }
+
+  .card.back { background:radial-gradient(circle at 50% 45%, #6a4a1e, #2a1a0a 70%); border:3px solid #d9a84a; }
+  .card.back::after { content:'◈'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:40cqw; color:#d9a84a; opacity:.75; }
+  .card.defpos { transform:rotate(90deg) scale(.74); }
+  .card.defpos:hover { transform:rotate(90deg) scale(.78); }
+  .card.sel { outline:4px solid var(--gold); box-shadow:0 0 22px var(--gold); transform:translateY(-6px); z-index:6; }
+  .card.sick::before { content:'⏳'; position:absolute; top:3px; right:4px; font-size:16px; z-index:3; }
+  .card.done { filter:saturate(.4) brightness(.65); }
+  .card .fdtag { position:absolute; bottom:3px; left:0; right:0; text-align:center; font-size:11px; color:var(--gold); z-index:3; text-shadow:0 0 4px #000; }
+
+  .card.summon { animation:summon .55s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes summon { 0% { transform:scale(1.8); opacity:0; filter:brightness(3); } 60% { filter:brightness(1.6); box-shadow:0 0 40px #fff; } 100% { transform:scale(1); opacity:1; filter:none; } }
+  .card.flipout { transition:transform .18s ease-in; transform:rotateY(90deg) !important; }
+  .card.flipin { animation:flipin .22s ease-out; }
+  @keyframes flipin { from { transform:rotateY(-90deg);} to { transform:rotateY(0);} }
+  .card.defpos.flipin { animation:flipinDef .22s ease-out; }
+  @keyframes flipinDef { from { transform:rotate(90deg) scale(.74) rotateY(-90deg);} to { transform:rotate(90deg) scale(.74) rotateY(0);} }
+  .card.destroy { animation:destroy .5s ease-in forwards; pointer-events:none; }
+  @keyframes destroy { 0% { filter:brightness(2);} 40% { transform:scale(1.15) rotate(4deg); filter:brightness(3) saturate(0);} 100% { transform:scale(.2) rotate(-20deg); opacity:0; filter:brightness(5);} }
+  .card.activate { animation:activate .6s; }
+  @keyframes activate { 40% { box-shadow:0 0 40px 10px #fff; transform:scale(1.15);} }
+  .card.buff { animation:buff .7s; }
+  @keyframes buff { 30% { box-shadow:0 0 30px 6px var(--gold); transform:scale(1.12);} }
+
+  /* ================= ZOOM-ANSICHT ================= */
+  #zoom { position:fixed; inset:0; z-index:110; background:rgba(2,4,10,.86); display:none; align-items:center; justify-content:center; gap:4vw; padding:3vh 4vw; backdrop-filter:blur(4px); }
+  #zoom.show { display:flex; }
+  #zoom .zcard { height:min(86vh, 640px); aspect-ratio:2/3; animation:zoomIn .22s cubic-bezier(.2,1.2,.4,1); filter:drop-shadow(0 20px 40px rgba(0,0,0,.9)); flex:none; }
+  #zoom .zcard .card { width:100%; height:100%; cursor:default; }
+  #zoom .zcard .card:hover { transform:none; box-shadow:none; }
+  @keyframes zoomIn { from { transform:scale(.4); opacity:0; } to { transform:scale(1); opacity:1; } }
+  #zoom .zside { display:flex; flex-direction:column; gap:10px; min-width:200px; max-width:300px; }
+  #zoom .zt { font-size:13px; color:var(--muted); letter-spacing:1px; margin-bottom:4px; text-align:center; }
+  #zoom .zside button { background:linear-gradient(180deg,#1f2a48,#141c33); border:1px solid #3f5a8c; color:#fff; padding:14px 16px; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer; text-align:left; transition:all .15s; }
+  #zoom .zside button:hover:not(:disabled) { border-color:var(--gold); filter:brightness(1.2); }
+  #zoom .zside button:disabled { opacity:.35; cursor:not-allowed; }
+  #zoom .zside button.x { background:transparent; border-color:#2a3a5a; color:var(--muted); text-align:center; font-size:14px; }
+  #zoom .zinfo { font-size:14px; color:#dfe6f5; line-height:1.45; background:rgba(0,0,0,.4); border-radius:8px; padding:10px; }
+  #zoom .zinfo b { color:var(--gold); }
+  @media (max-height:500px) { #zoom .zside button { padding:9px 12px; font-size:13px; } #zoom .zinfo { font-size:11px; } }
+  #musBtn { left:1348px; top:950px; width:52px; height:52px; border-radius:50%; background:#0a1024; border:2px solid #3f5a8c; font-size:22px; }
+  #musBtn.off { opacity:.5; }
+  #fsBtn { left:1408px; top:950px; width:52px; height:52px; border-radius:50%; background:#0a1024; border:2px solid #3f5a8c; font-size:22px; }
+
+  /* ================= POPOVER (ungenutzt) ================= */
+  #pop { position:fixed; z-index:60; display:none; background:#141c33; border:1px solid var(--gold); border-radius:10px; padding:6px; gap:4px; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,.6); min-width:180px; }
+  #pop::after { content:''; position:absolute; left:50%; bottom:-7px; width:12px; height:12px; background:#141c33; border-right:1px solid var(--gold); border-bottom:1px solid var(--gold); transform:translateX(-50%) rotate(45deg); }
+  #pop .ph { font-size:11px; color:var(--muted); padding:2px 6px; text-align:center; }
+  #pop button { background:#1f2a48; border:1px solid #334468; color:var(--text); padding:8px 10px; border-radius:6px; font-size:13px; cursor:pointer; text-align:left; }
+  #pop button:hover:not(:disabled) { background:#2a3a62; border-color:var(--gold); }
+  #pop button:disabled { opacity:.4; cursor:not-allowed; }
+  #pop button.x { color:var(--muted); font-size:11px; text-align:center; }
+
+  /* ================= FX ================= */
+  #fx { position:absolute; inset:0; pointer-events:none; z-index:80; overflow:hidden; }
+  .banner { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); font-size:92px; font-weight:900; letter-spacing:6px; color:#fff; text-transform:uppercase; white-space:nowrap; text-shadow:0 0 20px rgba(255,207,90,.9), 0 5px 0 #7a4b00, 0 0 70px #ff9d2e; animation:bannerIn 1.1s cubic-bezier(.2,1.2,.3,1) forwards; padding:14px 70px; background:linear-gradient(90deg, transparent, rgba(0,0,0,.7) 15%, rgba(0,0,0,.7) 85%, transparent); }
+  .banner.opp { text-shadow:0 0 20px rgba(255,94,58,.9), 0 5px 0 #5a0b00, 0 0 70px #ff3b3b; }
+  .banner.trap { color:#f3c6ff; text-shadow:0 0 20px var(--trap), 0 5px 0 #3b0a4a, 0 0 70px var(--trap); }
+  .banner.spell { color:#c9ffe0; text-shadow:0 0 20px var(--spell), 0 5px 0 #0a3b1f, 0 0 70px var(--spell); font-size:70px; }
+  .banner.win { color:#fff5c2; font-size:140px; }
+  .banner.lose { color:#ffb3b3; text-shadow:0 0 20px #ff3b3b, 0 5px 0 #3b0000, 0 0 70px #ff3b3b; font-size:140px; }
+  @keyframes bannerIn { 0% { transform:translate(-50%,-50%) scale(2.2); opacity:0; letter-spacing:40px;} 25% { transform:translate(-50%,-50%) scale(1); opacity:1; letter-spacing:6px;} 80% { opacity:1;} 100% { opacity:0; transform:translate(-50%,-50%) scale(1.05);} }
+  .fly { position:absolute; z-index:90; transition:all .45s cubic-bezier(.3,.9,.4,1); pointer-events:none; }
+  .dmg { position:absolute; z-index:95; font-family:'Courier New',monospace; font-weight:900; font-size:54px; color:var(--danger); text-shadow:0 0 10px #000, 0 3px 0 #000; animation:dmg 1.1s ease-out forwards; transform:translate(-50%,-50%); }
+  .dmg.heal { color:var(--ok); }
+  @keyframes dmg { 0% { opacity:0; transform:translate(-50%,-50%) scale(.4);} 15% { opacity:1; transform:translate(-50%,-60%) scale(1.3);} 100% { opacity:0; transform:translate(-50%,-180%) scale(1);} }
+  .slash { position:absolute; z-index:92; width:180px; height:180px; transform:translate(-50%,-50%); animation:slash .4s ease-out forwards; }
+  .slash::before, .slash::after { content:''; position:absolute; left:50%; top:50%; width:140%; height:8px; background:linear-gradient(90deg, transparent, #fff, transparent); transform:translate(-50%,-50%) rotate(35deg); box-shadow:0 0 24px #fff; }
+  .slash::after { transform:translate(-50%,-50%) rotate(-35deg); }
+  @keyframes slash { 0% { opacity:0; transform:translate(-50%,-50%) scale(.3);} 30% { opacity:1;} 100% { opacity:0; transform:translate(-50%,-50%) scale(1.6);} }
+  .ring { position:absolute; z-index:92; width:50px; height:50px; border-radius:50%; border:5px solid var(--gold); transform:translate(-50%,-50%); animation:ring .6s ease-out forwards; }
+  @keyframes ring { to { width:340px; height:340px; opacity:0;} }
+  .flash { position:absolute; inset:0; background:#fff; opacity:.5; animation:flashout .3s forwards; }
+  @keyframes flashout { to { opacity:0;} }
+
+  /* ================= OVERLAYS ================= */
+  .overlay { position:fixed; inset:0; z-index:100; background:rgba(2,4,10,.82); display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px); }
+  .overlay.show { display:flex; }
+  .dialog { background:linear-gradient(160deg,#141c33,#0b1020); border:2px solid var(--gold); border-radius:14px; padding:22px; max-width:520px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.8); }
+  .dialog h2 { color:var(--gold); font-size:20px; margin-bottom:8px; letter-spacing:1px; }
+  .dialog p { color:#d8e0f0; font-size:13px; line-height:1.5; margin-bottom:14px; }
+  .dialog .btns { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .dialog .dbtn { padding:11px 18px; border-radius:8px; border:1px solid #334468; background:linear-gradient(180deg,#1f2a48,#141c33); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
+  .dialog .dbtn.primary { background:linear-gradient(180deg,#ff9d2e,#d9551f); border-color:#ffc46a; color:#1a0d00; }
+  #dlgCard { display:flex; justify-content:center; margin-bottom:12px; }
+  #dlgCard .card { width:180px; height:270px; cursor:default; }
+  #dlgCard .card:hover { transform:none; }
+  #fullLog { max-height:60vh; overflow-y:auto; text-align:left; font-size:12px; line-height:1.5; margin-bottom:12px; }
+  #fullLog .l { padding:3px 6px; border-left:2px solid #26324d; margin-bottom:3px; }
+  #fullLog .l.me { border-color:var(--water);} #fullLog .l.ai { border-color:var(--fire);} #fullLog .l.sys { border-color:var(--gold); color:var(--gold);}
+
+  /* ================= STARTMENÜ (Board-Look) ================= */
+  #menu { z-index:120; padding:0; background:#03050c url(img/board.png) center/cover no-repeat; backdrop-filter:none; }
+  #menu::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 40%, rgba(3,5,12,.55), rgba(3,5,12,.92) 75%); backdrop-filter:blur(6px); }
+  #menu .mwrap { position:relative; width:min(92vw, 620px); max-height:100%; overflow-y:auto; padding:22px 18px 28px; text-align:center; }
+  #menu .mbox { position:relative; padding:34px 26px 30px; background:linear-gradient(180deg, rgba(8,12,30,.92), rgba(4,6,16,.96)); border:2px solid #2c5cff; box-shadow:0 0 30px rgba(44,92,255,.55), inset 0 0 40px rgba(44,92,255,.15); clip-path:polygon(28px 0, calc(100% - 28px) 0, 100% 28px, 100% calc(100% - 28px), calc(100% - 28px) 100%, 28px 100%, 0 calc(100% - 28px), 0 28px); }
+  #menu .mbox::before { content:''; position:absolute; inset:6px; border:1px solid rgba(255,80,80,.55); clip-path:polygon(24px 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 24px), calc(100% - 24px) 100%, 24px 100%, 0 calc(100% - 24px), 0 24px); pointer-events:none; }
+  #menu h1 { font-size:clamp(34px,7vw,62px); font-weight:900; letter-spacing:6px; color:#fff; text-shadow:0 0 18px #ff3b3b, 0 0 40px #2c5cff, 0 4px 0 #3a0a0a; margin-bottom:2px; }
+  #menu .sub { display:inline-block; font-size:13px; letter-spacing:5px; text-transform:uppercase; color:#ffcf5a; padding:5px 18px; margin:6px 0 20px; background:#120914; border:1px solid #ff9d2e; clip-path:polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); }
+  .lbl { font-size:12px; letter-spacing:4px; color:#8fc3ff; text-transform:uppercase; margin:18px 0 10px; text-shadow:0 0 8px rgba(70,182,255,.8); }
+  .lbl.red { color:#ff9a9a; text-shadow:0 0 8px rgba(255,59,59,.8); }
+  .choice { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .deckbtn { position:relative; flex:1 1 180px; max-width:240px; padding:0; border:none; background:none; cursor:pointer; transition:transform .15s; }
+  .deckbtn:hover { transform:translateY(-4px); }
+  .deckbtn .dcard { height:120px; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:2px solid; box-shadow:inset 0 0 30px rgba(0,0,0,.6); transition:box-shadow .15s, filter .15s; }
+  .deckbtn.w .dcard { border-color:#46b6ff; background:radial-gradient(circle at 50% 30%, #1d4e7f, #071428 75%); }
+  .deckbtn.f .dcard { border-color:#ff5e3a; background:radial-gradient(circle at 50% 30%, #7a2418, #230808 75%); }
+  .deckbtn .dcard .ic { font-size:40px; filter:drop-shadow(0 0 10px rgba(255,255,255,.5)); }
+  .deckbtn .dcard .dn { font-size:17px; font-weight:800; letter-spacing:1px; color:#fff; }
+  .deckbtn .dcard .ds { font-size:10px; letter-spacing:2px; color:#cfd8ea; text-transform:uppercase; }
+  .deckbtn.on .dcard { box-shadow:0 0 0 2px #fff, 0 0 32px currentColor, inset 0 0 30px rgba(0,0,0,.6); filter:brightness(1.15); }
+  .deckbtn.w.on { color:#46b6ff; } .deckbtn.f.on { color:#ff5e3a; }
+  .deckbtn.on::after { content:'✔ GEWÄHLT'; position:absolute; top:-10px; right:-6px; background:#ffcf5a; color:#1a1200; font-size:10px; font-weight:900; letter-spacing:1px; padding:3px 8px; border-radius:6px; }
+  .diffbtn { flex:1 1 120px; max-width:170px; padding:13px 10px; border:2px solid #2a3a66; background:#0a1024; color:#dfe6f5; font-size:15px; font-weight:700; cursor:pointer; letter-spacing:.5px; clip-path:polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); transition:all .15s; }
+  .diffbtn:hover { filter:brightness(1.3); }
+  .diffbtn.on { color:#fff; border-color:#fff; }
+  .diffbtn[data-v="1"].on { background:#0f3b1c; box-shadow:0 0 22px #4ddc5a; }
+  .diffbtn[data-v="2"].on { background:#3b2e0a; box-shadow:0 0 22px #ffcf5a; }
+  .diffbtn[data-v="3"].on { background:#3b0d0d; box-shadow:0 0 22px #ff3b3b; }
+  #startBtn { margin-top:26px; width:100%; padding:18px; font-size:22px; font-weight:900; letter-spacing:2px; border:none; color:#1a0a00; background:linear-gradient(180deg,#ffb020,#ff6a00); clip-path:polygon(4% 0,96% 0,100% 50%,96% 100%,4% 100%,0 50%); box-shadow:0 0 30px rgba(255,120,0,.6); cursor:pointer; transition:filter .15s, transform .1s; }
+  #startBtn:hover:not(:disabled) { filter:brightness(1.12); transform:translateY(-2px); }
+  #startBtn:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+  #menu .mnote { margin-top:14px; font-size:11px; letter-spacing:1px; color:#8b98b8; }
+  #rotate { display:none; position:fixed; inset:0; z-index:130; background:#03050c; color:#fff; align-items:center; justify-content:center; flex-direction:column; gap:14px; text-align:center; padding:30px; font-size:18px; }
+  #rotate .ph { font-size:70px; animation:rot 1.6s ease-in-out infinite; }
+  @keyframes rot { 0%,20% { transform:rotate(0);} 60%,100% { transform:rotate(90deg);} }
+  @media (orientation:portrait) and (max-width:700px) { #rotate { display:flex; } }
+  .rules { text-align:left; font-size:12px; line-height:1.6; color:#d8e0f0; } .rules li { margin-bottom:4px; } .rules ul { padding-left:18px; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <!-- Gegner -->
+  <div class="cover" id="oppName">KI</div>
+  <div class="cover" id="oppHand"></div>
+  <div class="abs" id="oppDeckPile"></div>
+  <div class="abs" id="oppGYPile"></div>
+  <div class="cover cnt" id="oppDeckCnt">0</div>
+  <div class="cover cnt" id="oppGYCnt">0</div>
+  <div class="cover" id="oppInfo">Hand <b id="oppHandCnt">5</b> · Deck <b id="oppDeck">30</b> · Friedhof <b id="oppGY">0</b></div>
+  <div class="lpbox" id="oppLP"><span class="lpv" id="oppLPv">8000</span><span class="lpl">LP GEGNER</span></div>
+
+  <!-- Feld -->
+  <div class="row" id="oppSpells"></div>
+  <div class="row" id="oppMons"></div>
+  <div class="cover vsn" id="vsO"><span id="cOpp">8000</span></div>
+  <div class="cover vsn" id="vsM"><span id="cMe">8000</span></div>
+  <div class="abs" id="hint"></div>
+  <div class="abs" id="miniLog" title="Protokoll öffnen"></div>
+  <div class="row" id="myMons"></div>
+  <div class="row" id="mySpells"></div>
+
+  <!-- Hand / Stapel -->
+  <div class="abs" id="handBg"></div>
+  <div class="abs" id="hand"></div>
+  <div class="abs" id="myGY"><div class="gyl">FRIEDHOF<b id="myGYCnt">0</b></div></div>
+  <div class="abs" id="myDeck"></div>
+  <div class="cover" id="myDeckLbl">DECK</div>
+  <div class="cover cnt" id="myDeckCnt">0</div>
+  <div class="abs" id="preview"></div>
+
+  <!-- Aktionen -->
+  <div class="cover" id="phaseLbl">Hauptphase 1</div>
+  <div class="lpbox" id="myLP"><span class="lpv" id="myLPv">8000</span><span class="lpl">DEINE LP</span></div>
+  <button class="abtn" id="primaryBtn">Zur Kampfphase ▶</button>
+  <button class="abtn" id="endTurnBtn">Zug beenden</button>
+  <button class="abtn" id="helpBtn" title="Regeln">?</button>
+  <button class="abtn" id="fsBtn" title="Vollbild">⛶</button>
+  <button class="abtn" id="musBtn" title="Musik an/aus">🎵</button>
+
+  <div id="fx"></div>
+</div>
+
+<div id="pop"></div>
+<div id="zoom"><div class="zcard" id="zcard"></div><div class="zside" id="zside"></div></div>
+
+<div class="overlay" id="dlg"><div class="dialog"><h2 id="dlgT"></h2><div id="dlgCard"></div><p id="dlgP"></p><div class="btns" id="dlgB"></div></div></div>
+<div class="overlay" id="logOv"><div class="dialog"><h2>Protokoll</h2><div id="fullLog"></div><div class="btns"><button class="dbtn primary" onclick="document.getElementById('logOv').classList.remove('show')">Schließen</button></div></div></div>
+<div class="overlay" id="help"><div class="dialog">
+  <h2>Spielregeln</h2>
+  <div class="rules"><ul>
+    <li><b>8000 LP</b> – wer zuerst auf 0 fällt, verliert. Leeres Deck = Niederlage.</li>
+    <li><b>Ziehen:</b> Klicke zu Beginn deines Zugs auf dein Deck (unten rechts).</li>
+    <li><b>Beschwören:</b> 1 Normalbeschwörung pro Zug (Angriff, Verteidigung oder verdeckt). Level 5–6 = 1 Tribut, Level 7 = 2 Tribute.</li>
+    <li><b>Zauber</b> nur im eigenen Zug (Hauptphase). <b>Fallen</b> werden verdeckt gesetzt und lösen im gegnerischen Zug aus – du wirst gefragt.</li>
+    <li><b>Kampf:</b> Monster anklicken, dann Ziel anklicken. Ohne gegnerische Monster: Klick auf die LP des Gegners = Direktangriff.</li>
+    <li>Frisch beschworene Monster greifen erst ab dem nächsten Zug an (⏳).</li>
+    <li><b>ATK vs ATK:</b> Differenz als Schaden an den Verlierer. <b>ATK vs DEF:</b> kein Schaden; Monster fällt wenn ATK &gt; DEF, Rückschaden wenn ATK &lt; DEF.</li>
+    <li>Handlimit: 7 Karten am Zugende. Maus über eine Karte zeigt sie groß unten links.</li>
+  </ul></div>
+  <div class="btns" style="margin-top:14px"><button class="dbtn primary" onclick="document.getElementById('help').classList.remove('show')">Verstanden</button></div>
+</div></div>
+
+<div id="rotate"><div class="ph">📱</div><div><b>Bitte Handy drehen</b><br><span style="font-size:14px;color:#8b98b8">Das Duell läuft im Querformat.</span></div></div>
+<div class="overlay show" id="menu"><div class="mwrap"><div class="mbox">
+  <h1>DUELLMEISTER</h1>
+  <div class="sub">Wasser vs. Feuer</div>
+  <div class="lbl">Dein Deck</div>
+  <div class="choice" id="deckChoice">
+    <button class="deckbtn w" data-v="water"><div class="dcard"><span class="ic">🌊</span><span class="dn">Wasser-Deck</span><span class="ds">Leviathan · Neptun · Tsunami</span></div></button>
+    <button class="deckbtn f" data-v="fire"><div class="dcard"><span class="ic">🔥</span><span class="dn">Feuer-Deck</span><span class="ds">Pyrion · Vulkanus · Infernus</span></div></button>
+  </div>
+  <div class="lbl red">Gegner-Stufe</div>
+  <div class="choice" id="diffChoice"><button class="diffbtn" data-v="1">🟢 Leicht</button><button class="diffbtn" data-v="2">🟡 Mittel</button><button class="diffbtn" data-v="3">🔴 Stark</button></div>
+  <button id="startBtn" disabled>⚔ DUELL STARTEN</button>
+  <div class="mnote">8000 LP · 35 Karten · Zauber im eigenen Zug · Fallen im Gegnerzug</div>
+</div></div></div>
+
+<script>
+/* ============================================================ KARTEN */
+const CARDS = {
+  w01:{id:'w01',name:'Welle-Krieger',type:'monster',deck:'water',art:'🌊',level:3,atk:1200,def:1100,text:'Junger Krieger der Küstenstämme, reitet auf Wellen.'},
+  w02:{id:'w02',name:'Aqua-Soldat',type:'monster',deck:'water',art:'🧜‍♂️',level:3,atk:1300,def:900,text:'Elitesoldat des Meereskönigreichs – schnell und präzise.'},
+  w03:{id:'w03',name:'Riff-Hai',type:'monster',deck:'water',art:'🦈',level:4,atk:1500,def:1300,text:'Wendiger Jäger der Korallenriffe.'},
+  w04:{id:'w04',name:'Seepferd-Ritter',type:'monster',deck:'water',art:'🐎',level:4,atk:1600,def:1400,text:'Ritter in Perlmutt-Rüstung mit Narwal-Lanze.'},
+  w05:{id:'w05',name:'Tiefsee-Garde',type:'monster',deck:'water',art:'🐚',level:4,atk:1400,def:1800,text:'Verteidiger der tiefsten Gräben in Muschelrüstung.'},
+  w06:{id:'w06',name:'Korallen-Krieger',type:'monster',deck:'water',art:'🪸',level:4,atk:1500,def:1500,text:'Aus lebender Koralle gewachsen – ausgewogen.'},
+  w07:{id:'w07',name:'Eis-Jäger',type:'monster',deck:'water',art:'❄️',level:4,atk:1700,def:1200,text:'Jäger der Polarmeere mit Eisbogen.'},
+  w08:{id:'w08',name:'Sturm-Delphin',type:'monster',deck:'water',art:'🐬',level:4,atk:1750,def:900,text:'Von Gewittern angetrieben, rammt mit Blitzkraft.'},
+  w09:{id:'w09',name:'Kraken-Späher',type:'monster',deck:'water',art:'🐙',level:3,atk:1100,def:1300,text:'Acht Arme, überrascht aus jedem Winkel.'},
+  w10:{id:'w10',name:'Perlen-Priesterin',type:'monster',deck:'water',art:'💎',effect:'draw1',level:3,atk:900,def:1600,text:'EFFEKT: Beim offenen Normalbeschwören ziehst du 1 Karte.'},
+  w11:{id:'w11',name:'Tsunami-Herrscher',type:'monster',deck:'water',art:'🌊',level:5,atk:2200,def:1600,text:'1 TRIBUT. Kommandiert die großen Wellen.'},
+  w12:{id:'w12',name:'Neptun, Ozeanfürst',type:'monster',deck:'water',art:'🔱',level:6,atk:2400,def:1800,text:'1 TRIBUT. Fürst aller Meere mit dem Dreizack.'},
+  w13:{id:'w13',name:'Leviathan der Tiefe',type:'monster',deck:'water',art:'🐉',level:7,atk:2800,def:2200,text:'2 TRIBUTE. Uralter Serpentinendrache der Abgrundtiefe.'},
+  wS1:{id:'wS1',name:'Welle der Erfrischung',type:'spell',deck:'water',art:'💧',effect:'heal1000',text:'Erhöhe deine Lebenspunkte um 1000.'},
+  wS2:{id:'wS2',name:'Wasserklinge',type:'spell',deck:'water',art:'🗡️',effect:'equipATK700',text:'Ein eigenes Monster erhält +700 ATK bis zum Zugende.'},
+  wS3:{id:'wS3',name:'Strömungslenker',type:'spell',deck:'water',art:'🌀',effect:'draw2',text:'Ziehe 2 Karten.'},
+  wS4:{id:'wS4',name:'Flutwelle',type:'spell',deck:'water',art:'🌊',effect:'destroy1',text:'Zerstöre 1 gegnerisches Monster.'},
+  wT1:{id:'wT1',name:'Wirbel-Falle',type:'trap',deck:'water',art:'🌀',effect:'negateAttack',trigger:'attack',text:'Negiere einen gegnerischen Angriff.'},
+  wT2:{id:'wT2',name:'Spiegelgezeiten',type:'trap',deck:'water',art:'🪞',effect:'reflect',trigger:'attack',text:'Reflektiere einen Angriff: Der Angreifer erhält Schaden in Höhe seiner ATK.'},
+  wT3:{id:'wT3',name:'Meereskette',type:'trap',deck:'water',art:'⛓️',effect:'chainMonster',trigger:'summon',text:'Ein gerade beschworenes gegnerisches Monster kann 1 zusätzlichen Zug nicht angreifen.'},
+  f01:{id:'f01',name:'Flammen-Lehrling',type:'monster',deck:'fire',art:'🔥',level:3,atk:1300,def:800,text:'Junger Pyromant in Ausbildung.'},
+  f02:{id:'f02',name:'Glut-Krieger',type:'monster',deck:'fire',art:'⚔️',level:3,atk:1400,def:900,text:'Krieger des Vulkandorfs mit Glutstein-Schwert.'},
+  f03:{id:'f03',name:'Feuer-Söldner',type:'monster',deck:'fire',art:'🪓',level:4,atk:1600,def:1100,text:'Söldner mit brennender Flammenaxt.'},
+  f04:{id:'f04',name:'Lava-Schmied',type:'monster',deck:'fire',art:'🔨',level:4,atk:1500,def:1600,text:'Schmiedet Waffen aus flüssiger Lava.'},
+  f05:{id:'f05',name:'Vulkan-Garde',type:'monster',deck:'fire',art:'🌋',level:4,atk:1400,def:1800,text:'Verteidiger der Vulkantempel mit Obsidianschild.'},
+  f06:{id:'f06',name:'Feuer-Berserker',type:'monster',deck:'fire',art:'😤',level:4,atk:1700,def:1000,text:'Entflammt sich selbst in Rage.'},
+  f07:{id:'f07',name:'Asche-Jäger',type:'monster',deck:'fire',art:'🏹',level:4,atk:1750,def:900,text:'Schießt brennende Pfeile.'},
+  f08:{id:'f08',name:'Pyro-Schamane',type:'monster',deck:'fire',art:'🧙',level:4,atk:1600,def:1400,text:'Spricht mit Feuergeistern.'},
+  f09:{id:'f09',name:'Funken-Kobold',type:'monster',deck:'fire',art:'👺',level:3,atk:1100,def:1200,text:'Kleiner, frecher Feuergeist.'},
+  f10:{id:'f10',name:'Phönix-Küken',type:'monster',deck:'fire',art:'🐣',effect:'draw1',level:3,atk:900,def:1600,text:'EFFEKT: Beim offenen Normalbeschwören ziehst du 1 Karte.'},
+  f11:{id:'f11',name:'Infernus-Hüter',type:'monster',deck:'fire',art:'🧌',level:5,atk:2200,def:1600,text:'1 TRIBUT. Wächter des brennenden Tores.'},
+  f12:{id:'f12',name:'Vulkanus, Flammenfürst',type:'monster',deck:'fire',art:'👑',level:6,atk:2400,def:1700,text:'1 TRIBUT. Herrscher aller Vulkane.'},
+  f13:{id:'f13',name:'Drachenlord Pyrion',type:'monster',deck:'fire',art:'🐲',level:7,atk:2800,def:2100,text:'2 TRIBUTE. Uralter Feuerdrache, Legende unter Legenden.'},
+  fS1:{id:'fS1',name:'Flammen-Elixier',type:'spell',deck:'fire',art:'🧪',effect:'heal1000',text:'Erhöhe deine Lebenspunkte um 1000.'},
+  fS2:{id:'fS2',name:'Feuer-Rüstung',type:'spell',deck:'fire',art:'🛡️',effect:'equipATK700',text:'Ein eigenes Monster erhält +700 ATK bis zum Zugende.'},
+  fS3:{id:'fS3',name:'Glut-Divination',type:'spell',deck:'fire',art:'👁️',effect:'draw2',text:'Ziehe 2 Karten.'},
+  fS4:{id:'fS4',name:'Inferno-Explosion',type:'spell',deck:'fire',art:'💥',effect:'destroy1',text:'Zerstöre 1 gegnerisches Monster.'},
+  fT1:{id:'fT1',name:'Lava-Grube',type:'trap',deck:'fire',art:'🕳️',effect:'negateAttack',trigger:'attack',text:'Negiere einen gegnerischen Angriff.'},
+  fT2:{id:'fT2',name:'Feuerring',type:'trap',deck:'fire',art:'⭕',effect:'reflect',trigger:'attack',text:'Reflektiere einen Angriff: Der Angreifer erhält Schaden in Höhe seiner ATK.'},
+  fT3:{id:'fT3',name:'Rauchvorhang',type:'trap',deck:'fire',art:'💨',effect:'chainMonster',trigger:'summon',text:'Ein gerade beschworenes gegnerisches Monster kann 1 zusätzlichen Zug nicht angreifen.'},
+};
+function buildDeck(which){
+  const p=which==='water'?'w':'f'; const d=[];
+  for(let i=1;i<=13;i++) d.push(p+String(i).padStart(2,'0'));
+  for(let i=1;i<=4;i++) d.push(p+'S'+i);
+  for(let i=1;i<=3;i++) d.push(p+'T'+i);
+  ['01','02','03','04','06','07','08','10','S1','S2','S3','S4','T1','T2','T3'].forEach(x=>d.push(p+x));
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d;
+}
+let instCounter=1;
+const mk=id=>({inst:instCounter++, id, def:CARDS[id], pos:'atk', faceDown:false, sick:true, chained:0, bonus:0, attacked:false, setTurn:-1});
+
+/* ============================================================ STATE / UTIL */
+let S=null;
+const UI={mode:'idle', sel:null, busy:false, snd:true, pending:null, scale:1};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const el=(t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+const other=w=>w==='me'?'ai':'me';
+const atkOf=c=>c.def.atk+(c.bonus||0);
+const tribOf=d=>d.level>=7?2:d.level>=5?1:0;
+const qInst=i=>document.querySelector(`#stage [data-inst="${i.inst}"]:not(.fly)`);
+const STAGE=$('#stage');
+const LOG=[];
+function log(who,msg){ LOG.push({who,msg}); const m=$('#miniLog'); m.innerHTML=LOG.slice(-4).map(x=>`<div class="l ${x.who}">${x.msg}</div>`).join(''); }
+$('#miniLog').addEventListener('click',()=>{ $('#fullLog').innerHTML=LOG.map(x=>`<div class="l ${x.who}">${x.msg}</div>`).join(''); $('#logOv').classList.add('show'); const f=$('#fullLog'); f.scrollTop=f.scrollHeight; });
+
+/* Skalierung der Bühne */
+function fit(){ const s=Math.min(innerWidth/1536, innerHeight/1024); UI.scale=s; STAGE.style.transform=`scale(${s})`; STAGE.style.left=((innerWidth-1536*s)/2)+'px'; STAGE.style.top=((innerHeight-1024*s)/2)+'px'; }
+addEventListener('resize',fit); fit();
+// Client-Rect -> Bühnenkoordinaten
+function sRect(e){ const r=e.getBoundingClientRect(), b=STAGE.getBoundingClientRect(), s=UI.scale; return {x:(r.left-b.left)/s, y:(r.top-b.top)/s, w:r.width/s, h:r.height/s}; }
+function center(e){ const r=sRect(e); return {x:r.x+r.w/2, y:r.y+r.h/2}; }
+
+/* ============================================================ MUSIK (synthetisch, 2 Loops) */
+const MUSIC={on:true, mode:null, step:0, next:0, timer:null, gain:null, noise:null};
+function mctx(){ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); if(!MUSIC.gain){ MUSIC.gain=AC.createGain(); MUSIC.gain.gain.value=0; MUSIC.gain.connect(AC.destination); const len=AC.sampleRate*1; const buf=AC.createBuffer(1,len,AC.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1; MUSIC.noise=buf; } return AC; }
+const N=n=>440*Math.pow(2,(n-69)/12);
+// Pattern: 16 Schritte (Sechzehntel). Zahlen = MIDI-Noten, 0 = Pause
+const PAT={
+  calm:{ bpm:84, bass:[45,0,0,45, 0,0,48,0, 52,0,0,52, 0,0,43,0], lead:[0,64,0,67, 0,69,0,0, 0,64,0,67, 0,72,0,0], pad:[[57,60,64],[57,60,64],[53,57,60],[55,59,62]], kick:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], hat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], snare:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] },
+  battle:{ bpm:156, bass:[40,40,0,40, 40,0,43,0, 40,40,0,40, 47,0,46,0], lead:[64,0,67,0, 71,0,67,64, 62,0,64,0, 67,0,71,0], pad:[[52,55,59],[52,55,59],[50,53,57],[48,52,55]], kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0], hat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1], snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0] },
+};
+function tone(freq,t,dur,type,vol,fc){ const ctx=AC; const o=ctx.createOscillator(), g=ctx.createGain(); let out=g; o.type=type; o.frequency.value=freq; if(fc){ const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=fc; o.connect(f); f.connect(g); } else o.connect(g); g.connect(MUSIC.gain); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.02); }
+function drum(t,kind){ const ctx=AC; if(kind==='kick'){ const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(40,t+0.12); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.connect(g); g.connect(MUSIC.gain); o.start(t); o.stop(t+0.2); return; } const src=ctx.createBufferSource(); src.buffer=MUSIC.noise; const f=ctx.createBiquadFilter(); f.type=kind==='hat'?'highpass':'bandpass'; f.frequency.value=kind==='hat'?7000:1800; const g=ctx.createGain(); const d=kind==='hat'?0.04:0.14; g.gain.setValueAtTime(kind==='hat'?0.12:0.28,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); src.connect(f); f.connect(g); g.connect(MUSIC.gain); src.start(t); src.stop(t+d+0.01); }
+function schedule(){
+  if(!MUSIC.mode) return; const P=PAT[MUSIC.mode]; const spb=60/P.bpm/4; // Sekunden pro Sechzehntel
+  while(MUSIC.next<AC.currentTime+0.25){
+    const i=MUSIC.step%16, bar=Math.floor(MUSIC.step/16)%4, t=MUSIC.next; const b=MUSIC.mode==='battle';
+    if(P.bass[i]) tone(N(P.bass[i]),t,spb*(b?0.9:1.8),'sawtooth',b?0.16:0.12,b?900:500);
+    if(P.lead[i]&&(b||bar%2===0)) tone(N(P.lead[i]+(bar===3?-2:0)),t,spb*(b?1.5:3),'triangle',b?0.09:0.06);
+    if(i===0) P.pad[bar].forEach(n=>tone(N(n),t,spb*16,'sine',0.035));
+    if(P.kick[i]) drum(t,'kick'); if(P.hat[i]) drum(t,'hat'); if(P.snare[i]) drum(t,'snare');
+    MUSIC.next+=spb; MUSIC.step++;
+  }
+}
+function music(mode){
+  if(mode===MUSIC.mode) return; MUSIC.mode=mode; $('#musBtn').classList.toggle('off',!MUSIC.on);
+  if(!mode){ if(MUSIC.gain) MUSIC.gain.gain.linearRampToValueAtTime(0,AC.currentTime+0.5); clearInterval(MUSIC.timer); MUSIC.timer=null; return; }
+  try{ mctx(); if(AC.state==='suspended') AC.resume(); }catch(e){ return; }
+  MUSIC.step=0; MUSIC.next=AC.currentTime+0.05;
+  const g=MUSIC.gain.gain; g.cancelScheduledValues(AC.currentTime); g.setValueAtTime(g.value,AC.currentTime); g.linearRampToValueAtTime(MUSIC.on?(mode==='battle'?0.5:0.4):0,AC.currentTime+0.8);
+  if(!MUSIC.timer) MUSIC.timer=setInterval(schedule,100); schedule();
+}
+function musicToggle(){ MUSIC.on=!MUSIC.on; $('#musBtn').classList.toggle('off',!MUSIC.on); if(MUSIC.gain){ MUSIC.gain.gain.linearRampToValueAtTime(MUSIC.on?(MUSIC.mode==='battle'?0.5:0.4):0,AC.currentTime+0.3); } if(MUSIC.on&&!MUSIC.timer&&MUSIC.mode){ const m=MUSIC.mode; MUSIC.mode=null; music(m); } }
+document.addEventListener('visibilitychange',()=>{ if(!AC) return; if(document.hidden) AC.suspend(); else if(MUSIC.mode) AC.resume(); });
+
+/* ============================================================ SOUND */
+let AC=null;
+function snd(type){
+  if(!UI.snd) return;
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(AC.destination); const t=AC.currentTime;
+    const P={draw:[600,900,.08,'sine'],summon:[200,800,.35,'sawtooth'],attack:[300,80,.3,'square'],hit:[120,40,.35,'sawtooth'],trap:[900,300,.45,'triangle'],spell:[400,1200,.4,'sine'],heal:[500,1000,.3,'sine'],win:[400,1600,1.2,'triangle'],lose:[300,60,1.2,'sawtooth'],click:[800,800,.04,'sine']}[type]; if(!P) return;
+    o.type=P[3]; o.frequency.setValueAtTime(P[0],t); o.frequency.exponentialRampToValueAtTime(P[1],t+P[2]); g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+P[2]); o.start(t); o.stop(t+P[2]+.02);
+  }catch(e){}
+}
+
+/* ============================================================ FX */
+const FX=$('#fx');
+async function banner(text,cls=''){ const b=el('div','banner '+cls,text); FX.appendChild(b); await sleep(1000); b.remove(); }
+function floatDmg(targetEl,amount,heal=false){ const c=center(targetEl); const d=el('div','dmg'+(heal?' heal':''),(heal?'+':'-')+amount); d.style.left=c.x+'px'; d.style.top=c.y+'px'; FX.appendChild(d); setTimeout(()=>d.remove(),1200); }
+function slashAt(e){ const c=center(e); const s=el('div','slash'); s.style.left=c.x+'px'; s.style.top=c.y+'px'; FX.appendChild(s); setTimeout(()=>s.remove(),450); }
+function ringAt(e){ const c=center(e); const s=el('div','ring'); s.style.left=c.x+'px'; s.style.top=c.y+'px'; FX.appendChild(s); setTimeout(()=>s.remove(),650); }
+function flash(){ const f=el('div','flash'); FX.appendChild(f); setTimeout(()=>f.remove(),320); }
+function shakeBoard(){ STAGE.classList.remove('shake'); void STAGE.offsetWidth; STAGE.classList.add('shake'); setTimeout(()=>STAGE.classList.remove('shake'),450); }
+async function flyCard(fromEl,toEl,inst,faceDown){
+  if(!fromEl||!toEl) return;
+  const a=sRect(fromEl), b=sRect(toEl);
+  // Zielgröße: Portrait-Karte in Slot-Höhe
+  const th=b.h, tw=th*0.667, tx=b.x+(b.w-tw)/2;
+  const ah=a.h, aw=ah*0.667, ax=a.x+(a.w-aw)/2;
+  const c=cardEl(inst,{faceDown,small:true}); c.classList.add('fly');
+  Object.assign(c.style,{left:ax+'px',top:a.y+'px',width:aw+'px',height:ah+'px'});
+  STAGE.appendChild(c); void c.offsetWidth;
+  Object.assign(c.style,{left:tx+'px',top:b.y+'px',width:tw+'px',height:th+'px'});
+  await sleep(460); c.remove();
+}
+async function animAttack(attInst,targetEl){
+  const a=qInst(attInst); if(!a||!targetEl) return;
+  snd('attack'); const ca=center(a), ct=center(targetEl); const dx=ct.x-ca.x, dy=ct.y-ca.y;
+  a.style.transition='transform .22s cubic-bezier(.4,0,1,1)'; a.style.zIndex=20; a.style.transform=`translate(${dx*0.85}px,${dy*0.85}px) scale(1.15)`;
+  await sleep(230); slashAt(targetEl); flash(); shakeBoard(); snd('hit'); targetEl.classList.add('hit');
+  a.style.transition='transform .3s cubic-bezier(0,.8,.4,1)'; a.style.transform=''; await sleep(320); a.style.zIndex=''; a.style.transition=''; targetEl.classList.remove('hit');
+}
+async function animDestroy(inst){ const e=qInst(inst); if(!e) return; e.classList.add('destroy'); await sleep(480); }
+async function animFlip(inst){ const e=qInst(inst); if(e){ e.classList.add('flipout'); await sleep(180); } inst.faceDown=false; render(); const n=qInst(inst); if(n) n.classList.add('flipin'); await sleep(230); }
+async function animActivate(inst,kind){ const e=qInst(inst); if(e) e.classList.add('activate'); snd(kind==='trap'?'trap':'spell'); await sleep(400); }
+async function changeLP(who,delta){
+  const p=S[who]; const old=p.lp; p.lp=Math.max(0,p.lp+delta);
+  const box=who==='me'?$('#myLP'):$('#oppLP'); const v=who==='me'?$('#myLPv'):$('#oppLPv'); const cv=who==='me'?$('#cMe'):$('#cOpp');
+  floatDmg(box,Math.abs(delta),delta>0); box.classList.add(delta<0?'hurt':'heal'); if(delta<0){ shakeBoard(); snd('hit'); } else snd('heal');
+  const steps=16; for(let i=1;i<=steps;i++){ const val=Math.round(old+(p.lp-old)*i/steps); v.textContent=val; cv.textContent=val; await sleep(28); }
+  box.classList.remove('hurt','heal');
+}
+
+/* ============================================================ KARTEN-RENDER */
+function cardEl(inst,{faceDown=false,small=true}={}){
+  const d=inst.def; const e=el('div','card'+(small?' small':'')); e.dataset.inst=inst.inst;
+  if(faceDown){ e.classList.add('back'); if(inst.pos==='def'&&d.type==='monster') e.classList.add('defpos'); e.addEventListener('mouseenter',()=>showPreview(inst,true)); e.addEventListener('mouseleave',hidePreview); return e; }
+  const cls=d.type==='monster'?d.deck:d.type; e.classList.add(cls); if(inst.bonus) e.classList.add('buffed');
+  if(inst.pos==='def'&&d.type==='monster') e.classList.add('defpos');
+  const img=d.type==='monster'?'img/monster.png':(d.type==='spell'?'img/spell.png':'img/trap.png');
+  const elem=d.deck==='water'?'Wasser':'Feuer';
+  const stars='★'.repeat(d.level||0);
+  let h=`<img class="frame" src="${img}" draggable="false"><div class="nm">${d.name}</div>`;
+  if(d.type==='monster'){
+    h+=`<div class="ty">MONSTERKARTE</div><div class="stars">${stars}</div><div class="art">${d.art}</div><div class="tb">${elem.toUpperCase()} / ${d.effect?'EFFEKT':'NORMAL'}${tribOf(d)?` · ${tribOf(d)} TRIBUT${tribOf(d)>1?'E':''}`:''}</div><div class="tx">${d.text}</div><div class="atk">${atkOf(inst)}</div><div class="def">${d.def}</div><div class="lvl">${stars}</div>`;
+  } else {
+    h+=`<div class="ty">${d.type==='spell'?'ZAUBERKARTE':'FALLENKARTE'}</div><div class="art">${d.art}</div><div class="tx">${d.text}</div><div class="lvl">${d.type==='spell'?'ZAUBER':'FALLE'}</div>`;
+  }
+  e.innerHTML=h;
+  e.addEventListener('mouseenter',()=>showPreview(inst,false)); e.addEventListener('mouseleave',hidePreview);
+  return e;
+}
+function showPreview(inst,hidden){ const pv=$('#preview'); pv.innerHTML=''; if(hidden){ const c=cardEl(inst,{faceDown:true,small:false}); c.classList.remove('defpos'); pv.appendChild(c); } else { const c=cardEl(inst,{small:false}); c.classList.remove('defpos'); pv.appendChild(c); } pv.style.display='block'; }
+function hidePreview(){ $('#preview').style.display='none'; }
+
+const ROWS={oppMons:{y:160,h:120}, oppSpells:{y:302,h:103}, myMons:{y:505,h:115}, mySpells:{y:647,h:100}};
+function renderRow(id,arr,owner,kind){
+  const row=$('#'+id); row.innerHTML=''; const R=ROWS[id];
+  arr.forEach((inst,i)=>{
+    const s=el('div','slot'); s.dataset.i=i; s.dataset.owner=owner; s.dataset.kind=kind;
+    s.style.left=(262+i*212)+'px'; s.style.top=R.y+'px'; s.style.height=R.h+'px';
+    if(inst){
+      const showHidden=owner==='ai'?inst.faceDown:false;
+      const c=cardEl(inst,{faceDown:showHidden,small:true});
+      c.style.height=(R.h-6)+'px'; c.style.width=((R.h-6)*0.667)+'px';
+      if(owner==='me'&&inst.faceDown){ c.style.opacity='.85'; c.insertAdjacentHTML('beforeend','<span class="fdtag">verdeckt</span>'); }
+      if(kind==='monster'&&owner==='me'&&!inst.faceDown){ if(inst.sick) c.classList.add('sick'); if(inst.attacked) c.classList.add('done'); }
+      if(UI.sel&&UI.sel.inst===inst.inst) c.classList.add('sel');
+      c.addEventListener('click',ev=>{ev.stopPropagation(); onFieldClick(owner,kind,i);});
+      s.appendChild(c);
+    } else s.addEventListener('click',()=>onEmptyClick(owner,kind,i));
+    row.appendChild(s);
+  });
+}
+function pileEl(container,count,back=true){ container.innerHTML=''; if(count>0){ const c=el('div','card small back'); c.style.cssText='position:absolute;inset:0;cursor:inherit'; container.appendChild(c); } }
+function render(){
+  if(!S) return;
+  $('#myLPv').textContent=S.me.lp; $('#oppLPv').textContent=S.ai.lp; $('#cMe').textContent=S.me.lp; $('#cOpp').textContent=S.ai.lp;
+  $('#oppDeck').textContent=S.ai.deck.length; $('#oppGY').textContent=S.ai.gy.length; $('#oppHandCnt').textContent=S.ai.hand.length;
+  $('#oppDeckCnt').textContent=S.ai.deck.length; $('#oppGYCnt').textContent=S.ai.gy.length;
+  $('#oppHand').innerHTML=S.ai.hand.slice(0,6).map(()=>'<span></span>').join('')+(S.ai.hand.length>6?`<b style="color:#fff;font-size:18px">+${S.ai.hand.length-6}</b>`:'');
+  $('#oppName').textContent=`KI · ${['','Leicht','Mittel','Stark'][S.diff]} ${S.ai.deckName==='water'?'🌊':'🔥'}`;
+  $('#myDeckCnt').textContent=S.me.deck.length; $('#myGYCnt').textContent=S.me.gy.length;
+  $('#myDeck').classList.toggle('drawable', S.turn==='me'&&S.phase==='draw'&&!UI.busy);
+  // Friedhof: oberste Karte zeigen
+  const gy=$('#myGY'); gy.querySelectorAll('.card').forEach(x=>x.remove());
+  if(S.me.gy.length){ const top=mk(S.me.gy[S.me.gy.length-1]); const c=cardEl(top,{small:true}); c.style.filter='grayscale(.5) brightness(.8)'; gy.prepend(c); }
+  $('#phaseLbl').textContent=S.turn==='me'?{draw:'Ziehphase',main1:'Hauptphase 1',battle:'Kampfphase',main2:'Hauptphase 2',end:'Endphase'}[S.phase]:'Zug des Gegners';
+
+  renderRow('oppSpells',S.ai.spells,'ai','spell'); renderRow('oppMons',S.ai.mons,'ai','monster');
+  renderRow('myMons',S.me.mons,'me','monster'); renderRow('mySpells',S.me.spells,'me','spell');
+
+  const H=$('#hand'); H.innerHTML='';
+  const n=S.me.hand.length; const gap=n>7?Math.max(-40,(880-n*112)/(n-1)):14; H.style.gap=gap+'px';
+  S.me.hand.forEach((inst,i)=>{ const c=cardEl(inst,{small:true}); c.dataset.hand=i; if(UI.sel&&UI.sel.inst===inst.inst) c.classList.add('sel'); if(!(S.turn==='me'&&(S.phase==='main1'||S.phase==='main2'))&&UI.mode!=='discard') c.classList.add('disabled'); c.addEventListener('click',ev=>{ev.stopPropagation(); onHandClick(i,c);}); H.appendChild(c); });
+
+  const pb=$('#primaryBtn'), eb=$('#endTurnBtn'); const myTurn=S.turn==='me'&&!UI.busy&&!S.over;
+  pb.disabled=!myTurn||S.phase==='draw'; eb.disabled=!myTurn||S.phase==='draw';
+  pb.textContent={draw:'Erst Karte ziehen',main1:'Zur Kampfphase ▶',battle:'Zur Hauptphase 2 ▶',main2:'Zug beenden ▶',end:'Zug beenden ▶'}[S.phase]||'Weiter';
+  setHint(); applyHighlights();
+}
+function setHint(){
+  const h=$('#hint'); if(S.over){h.innerHTML='<b>Duell beendet.</b>';return;}
+  if(S.turn!=='me'){h.innerHTML='<b>Zug des Gegners…</b><small>Deine verdeckten Fallen können jetzt auslösen.</small>';return;}
+  if(UI.mode==='attack'){h.innerHTML='<b>Ziel wählen</b><small>Gegnerisches Monster anklicken – oder die LP des Gegners (ohne Monster).</small>';return;}
+  if(UI.mode==='spellTarget'){h.innerHTML=`<b>Ziel für ${UI.pending.inst.def.name}</b><small>Markiertes Monster anklicken.</small>`;return;}
+  if(UI.mode==='tribute'){h.innerHTML=`<b>Tribut wählen (${UI.pending.need} übrig)</b><small>Eigene Monster anklicken, die geopfert werden.</small>`;return;}
+  if(UI.mode==='discard'){h.innerHTML='<b>Handlimit 7!</b><small>Handkarte anklicken, die du ablegst.</small>';return;}
+  const m={draw:['Ziehphase','Klicke auf dein Deck unten rechts.'],main1:['Hauptphase 1','Handkarte anklicken: beschwören, aktivieren, setzen. Feldmonster: Position wechseln.'],battle:['Kampfphase','Eigenes Monster (Angriff) anklicken, dann Ziel.'],main2:['Hauptphase 2','Noch Karten spielen – dann Zug beenden.'],end:['Endphase','']};
+  const x=m[S.phase]; h.innerHTML=`<b>${x[0]}</b>${S.summoned&&S.phase!=='battle'?' · Beschwörung verbraucht':''}<small>${x[1]}</small>`;
+}
+function applyHighlights(){
+  $$('.slot').forEach(s=>s.classList.remove('targetable','selectable')); $('#oppLP').classList.remove('targetable');
+  if(UI.mode==='attack'){ const has=S.ai.mons.some(x=>x); if(has) $$('#oppMons .slot').forEach(s=>{ if(S.ai.mons[+s.dataset.i]) s.classList.add('targetable'); }); else $('#oppLP').classList.add('targetable'); }
+  if(UI.mode==='spellTarget'){ const side=UI.pending.side; const arr=side==='ai'?S.ai.mons:S.me.mons; const rowId=side==='ai'?'#oppMons':'#myMons'; $$(rowId+' .slot').forEach(s=>{ const m=arr[+s.dataset.i]; if(m&&(side==='ai'||!m.faceDown)) s.classList.add(side==='ai'?'targetable':'selectable'); }); }
+  if(UI.mode==='tribute'){ $$('#myMons .slot').forEach(s=>{ const m=S.me.mons[+s.dataset.i]; if(m&&!UI.pending.chosen.includes(+s.dataset.i)) s.classList.add('selectable'); }); }
+}
+
+/* ============================================================ ZOOM (Karte groß + Aktionen) */
+const ZOOM=$('#zoom');
+function hidePop(){ ZOOM.classList.remove('show'); $('#zcard').innerHTML=''; $('#zside').innerHTML=''; }
+function cardInfo(inst,hidden){
+  if(hidden) return 'Verdeckte Karte des Gegners – was es ist, erfährst du erst beim Aufdecken.';
+  const d=inst.def;
+  if(d.type==='monster') return `<b>Level ${d.level}</b> · ${d.deck==='water'?'Wasser':'Feuer'} · ${d.effect?'Effektmonster':'Normales Monster'}${tribOf(d)?` · <b>${tribOf(d)} Tribut${tribOf(d)>1?'e':''}</b>`:''}<br>ATK <b>${atkOf(inst)}</b>${inst.bonus?` (+${inst.bonus})`:''} · DEF <b>${d.def}</b>${inst.sick&&!inst.faceDown&&(S.me.mons.includes(inst)||S.ai.mons.includes(inst))?'<br>⏳ Erst nächsten Zug angriffsbereit':''}`;
+  return d.type==='spell'?'<b>Zauberkarte</b> – nur im eigenen Zug spielbar.':`<b>Fallenkarte</b> – verdeckt setzen, löst bei ${d.trigger==='attack'?'gegnerischem Angriff':'gegnerischer Beschwörung'} aus.`;
+}
+function openZoom(inst,{hidden=false,title='',items=[]}={}){
+  hidePreview();
+  const zc=$('#zcard'); zc.innerHTML=''; const c=cardEl(inst,{faceDown:hidden,small:false}); c.classList.remove('defpos'); zc.appendChild(c);
+  const zs=$('#zside'); zs.innerHTML='';
+  if(title) zs.appendChild(el('div','zt',title));
+  zs.appendChild(el('div','zinfo',cardInfo(inst,hidden)));
+  items.forEach(it=>{ const b=el('button','',it.label); b.disabled=!!it.disabled; b.addEventListener('click',ev=>{ev.stopPropagation(); hidePop(); it.fn();}); zs.appendChild(b); });
+  const x=el('button','x',items.length?'✕ Abbrechen':'✕ Schließen'); x.addEventListener('click',ev=>{ev.stopPropagation(); clearSel();}); zs.appendChild(x);
+  ZOOM.classList.add('show');
+}
+function showPop(anchor,title,items){ openZoom(UI.sel,{title,items}); }
+function clearSel(){ UI.sel=null; UI.mode='idle'; UI.pending=null; hidePop(); render(); }
+ZOOM.addEventListener('click',ev=>{ if(ev.target===ZOOM) clearSel(); });
+document.addEventListener('click',()=>{ if((UI.mode==='idle'||UI.mode==='pop')&&UI.sel) clearSel(); });
+
+/* ============================================================ DIALOG */
+function dialog(title,text,btns,cardInst){
+  return new Promise(res=>{
+    $('#dlgT').textContent=title; $('#dlgP').innerHTML=text||''; const B=$('#dlgB'); B.innerHTML='';
+    const C=$('#dlgCard'); C.innerHTML=''; if(cardInst){ const c=cardEl(cardInst,{small:false}); c.classList.remove('defpos'); C.appendChild(c); }
+    btns.forEach(b=>{ const x=el('button','dbtn'+(b.primary?' primary':''),b.label); x.addEventListener('click',()=>{ $('#dlg').classList.remove('show'); res(b.value); }); B.appendChild(x); });
+    $('#dlg').classList.add('show');
+  });
+}
+
+/* ============================================================ START */
+function newGame(deck,diff){
+  instCounter=1; LOG.length=0;
+  S={diff, turn:'me', phase:'draw', turnNo:1, summoned:false, over:false,
+     me:{deck:buildDeck(deck), hand:[], mons:[null,null,null,null,null], spells:[null,null,null,null,null], gy:[], lp:8000, deckName:deck},
+     ai:{deck:buildDeck(deck==='water'?'fire':'water'), hand:[], mons:[null,null,null,null,null], spells:[null,null,null,null,null], gy:[], lp:8000, deckName:deck==='water'?'fire':'water'}};
+  for(let i=0;i<5;i++){ S.me.hand.push(mk(S.me.deck.pop())); S.ai.hand.push(mk(S.ai.deck.pop())); }
+  log('sys',`Duell: ${deck==='water'?'🌊 Wasser':'🔥 Feuer'} gegen ${S.ai.deckName==='water'?'🌊 Wasser':'🔥 Feuer'}.`);
+  render();
+  (async()=>{ UI.busy=true; render(); await banner('DUELL!'); await banner('DEIN ZUG'); UI.busy=false; render(); })();
+}
+
+/* ============================================================ ZIEHEN */
+async function draw(who,animate=true){
+  const p=S[who];
+  if(p.deck.length===0){ await endGame(who==='me'?'lose':'win','Deck leer – keine Karte mehr zum Ziehen.'); return null; }
+  const inst=mk(p.deck.pop());
+  if(animate){ snd('draw');
+    if(who==='me'){ const H=$('#hand'); const ghost=el('div'); ghost.style.cssText='height:168px;width:112px;visibility:hidden;flex:none'; H.appendChild(ghost); await flyCard($('#myDeck'),ghost,inst,false); ghost.remove(); }
+    else await flyCard($('#oppDeckPile'),$('#oppHand'),inst,true);
+  }
+  p.hand.push(inst); render(); return inst;
+}
+async function playerDraw(){ if(UI.busy||S.turn!=='me'||S.phase!=='draw') return; UI.busy=true; render(); await draw('me'); if(S.over) return; log('me','Du ziehst eine Karte.'); S.phase='main1'; UI.busy=false; render(); }
+
+/* ============================================================ HAND */
+function onHandClick(i,elm){
+  if(UI.busy||S.over) return;
+  if(UI.mode==='discard'){ discardFromHand(i); return; }
+  if(UI.mode!=='idle'&&UI.mode!=='pop') return;
+  if(S.turn!=='me'||!(S.phase==='main1'||S.phase==='main2')){ UI.sel=S.me.hand[i]; UI.mode='pop'; openZoom(S.me.hand[i],{title:'Handkarte'}); return; }
+  const inst=S.me.hand[i]; const d=inst.def; UI.sel=inst; UI.mode='pop'; render();
+  const anchor=$(`#hand [data-inst="${inst.inst}"]`)||elm;
+  const freeM=S.me.mons.findIndex(x=>!x), freeS=S.me.spells.findIndex(x=>!x);
+  if(d.type==='monster'){
+    const need=tribOf(d); const have=S.me.mons.filter(x=>x).length;
+    const dis=S.summoned||(freeM<0&&need===0)||have<need;
+    const why=S.summoned?'Schon beschworen diesen Zug':(have<need?`${need} Tribut nötig – zu wenig Monster`:(freeM<0?'Kein Platz':''));
+    showPop(anchor, why||`${d.name}${need?` · ${need} Tribut${need>1?'e':''}`:''}`, [
+      {label:'⚔️ Beschwören – Angriff',disabled:dis,fn:()=>startSummon(i,'atk',false)},
+      {label:'🛡️ Beschwören – Verteidigung',disabled:dis,fn:()=>startSummon(i,'def',false)},
+      {label:'◈ Verdeckt setzen (Verteidigung)',disabled:dis,fn:()=>startSummon(i,'def',true)},
+    ]);
+  } else if(d.type==='spell') showPop(anchor,d.name,[{label:'✨ Zauber aktivieren',disabled:freeS<0,fn:()=>playerSpell(i)}]);
+  else showPop(anchor,d.name+' · Falle',[{label:'◈ Verdeckt setzen',disabled:freeS<0,fn:()=>playerSetTrap(i)}]);
+}
+async function startSummon(handIdx,pos,faceDown){
+  const inst=S.me.hand[handIdx]; const need=tribOf(inst.def);
+  if(need>0){ UI.mode='tribute'; UI.pending={handIdx,pos,faceDown,need,chosen:[]}; UI.sel=inst; render(); return; }
+  await doSummon('me',handIdx,pos,faceDown,[]);
+}
+async function doSummon(who,handIdx,pos,faceDown,tributes){
+  UI.busy=true; UI.mode='idle'; UI.sel=null; hidePop(); hidePreview(); render();
+  const p=S[who]; const inst=p.hand[handIdx];
+  for(const ti of tributes.sort((a,b)=>b-a)){ const t=p.mons[ti]; log(who,`${who==='me'?'Du opferst':'KI opfert'} ${t.def.name}.`); await animDestroy(t); p.gy.push(t.id); p.mons[ti]=null; }
+  render();
+  const slot=p.mons.findIndex(x=>!x); p.hand.splice(handIdx,1);
+  inst.pos=pos; inst.faceDown=faceDown; inst.sick=true; inst.attacked=false; inst.bonus=0; p.mons[slot]=inst; S.summoned=true;
+  const from=who==='me'?$('#hand'):$('#oppHand'); const target=$$((who==='me'?'#myMons':'#oppMons')+' .slot')[slot];
+  await flyCard(from,target,inst,faceDown); render();
+  const e=qInst(inst); if(e) e.classList.add('summon');
+  if(!faceDown){ snd('summon'); ringAt(target); log(who,`${who==='me'?'Du beschwörst':'KI beschwört'} ${inst.def.name} (${pos==='atk'?'ATK':'DEF'}).`); } else log(who,`${who==='me'?'Du setzt':'KI setzt'} ein Monster verdeckt.`);
+  await sleep(500);
+  if(!faceDown&&inst.def.effect==='draw1'){ log(who,`${inst.def.name}: 1 Karte ziehen.`); await draw(who); }
+  if(!faceDown) await trapCheck(other(who),'summon',{monster:inst});
+  UI.busy=false; render();
+}
+async function playerSpell(handIdx){
+  const inst=S.me.hand[handIdx]; const eff=inst.def.effect;
+  if(eff==='destroy1'){ if(!S.ai.mons.some(x=>x)){ await dialog('Kein Ziel','Der Gegner hat kein Monster auf dem Feld.',[{label:'OK',primary:true}]); clearSel(); return; } UI.mode='spellTarget'; UI.pending={handIdx,inst,side:'ai'}; render(); return; }
+  if(eff==='equipATK700'){ if(!S.me.mons.some(x=>x&&!x.faceDown)){ await dialog('Kein Ziel','Du hast kein offenes Monster.',[{label:'OK',primary:true}]); clearSel(); return; } UI.mode='spellTarget'; UI.pending={handIdx,inst,side:'me'}; render(); return; }
+  await resolveSpell('me',handIdx,null);
+}
+async function resolveSpell(who,handIdx,targetIdx){
+  UI.busy=true; UI.mode='idle'; UI.sel=null; UI.pending=null; hidePop(); hidePreview(); render();
+  const p=S[who]; const inst=p.hand[handIdx]; const d=inst.def; p.hand.splice(handIdx,1);
+  const slot=p.spells.findIndex(x=>!x); p.spells[slot]=inst; inst.faceDown=false;
+  const from=who==='me'?$('#hand'):$('#oppHand'); const target=$$((who==='me'?'#mySpells':'#oppSpells')+' .slot')[slot];
+  await flyCard(from,target,inst,false); render();
+  await animActivate(inst,'spell'); await banner(d.name.toUpperCase(),'spell');
+  const name=who==='me'?'Du':'KI';
+  if(d.effect==='heal1000'){ log(who,`${name}: ${d.name} – +1000 LP.`); await changeLP(who,+1000); }
+  else if(d.effect==='draw2'){ log(who,`${name}: ${d.name} – 2 Karten.`); await draw(who); if(!S.over) await draw(who); }
+  else if(d.effect==='destroy1'){ const opp=other(who); const t=S[opp].mons[targetIdx]; if(t){ if(t.faceDown) await animFlip(t); log(who,`${name}: ${d.name} zerstört ${t.def.name}.`); await animDestroy(t); S[opp].gy.push(t.id); S[opp].mons[targetIdx]=null; } }
+  else if(d.effect==='equipATK700'){ const t=p.mons[targetIdx]; if(t){ t.bonus+=700; log(who,`${name}: ${d.name} – ${t.def.name} +700 ATK.`); render(); const e=qInst(t); if(e) e.classList.add('buff'); await sleep(600); } }
+  p.spells[slot]=null; p.gy.push(inst.id); UI.busy=false; render();
+}
+async function playerSetTrap(handIdx){
+  UI.busy=true; hidePop(); hidePreview(); UI.sel=null; UI.mode='idle';
+  const inst=S.me.hand[handIdx]; S.me.hand.splice(handIdx,1);
+  const slot=S.me.spells.findIndex(x=>!x); inst.faceDown=true; inst.setTurn=S.turnNo; S.me.spells[slot]=inst;
+  await flyCard($('#hand'),$$('#mySpells .slot')[slot],inst,true);
+  log('me','Du setzt eine Karte verdeckt.'); UI.busy=false; render();
+}
+
+/* ============================================================ FELD */
+async function onFieldClick(owner,kind,i){
+  if(UI.busy||S.over) return;
+  const arr=owner==='me'?(kind==='monster'?S.me.mons:S.me.spells):(kind==='monster'?S.ai.mons:S.ai.spells);
+  const inst=arr[i]; if(!inst) return;
+  if(UI.mode==='tribute'&&owner==='me'&&kind==='monster'){ const P=UI.pending; if(P.chosen.includes(i)) return; P.chosen.push(i); P.need--; if(P.need<=0) await doSummon('me',P.handIdx,P.pos,P.faceDown,P.chosen); else render(); return; }
+  if(UI.mode==='spellTarget'&&kind==='monster'&&owner===UI.pending.side){ if(owner==='me'&&inst.faceDown) return; await resolveSpell('me',UI.pending.handIdx,i); return; }
+  if(UI.mode==='attack'){ if(owner==='ai'&&kind==='monster'){ const att=UI.sel; UI.mode='idle'; UI.sel=null; await playerAttack(att,i); } else if(owner==='me'&&kind==='monster') selectAttacker(inst); return; }
+  const viewOnly = owner==='ai' || kind==='spell' || S.turn!=='me' || !(S.phase==='main1'||S.phase==='main2'||S.phase==='battle');
+  if(viewOnly){ UI.sel=inst; UI.mode='pop'; openZoom(inst,{hidden:owner==='ai'&&inst.faceDown, title:owner==='ai'?'Karte des Gegners':(kind==='spell'?'Deine verdeckte Karte':'Deine Karte')}); return; }
+  if(owner==='me'&&kind==='monster'){
+    if(S.phase==='battle'){ if(inst.faceDown||inst.pos!=='atk'||inst.sick||inst.attacked){ UI.sel=inst; UI.mode='pop'; openZoom(inst,{title:'Deine Karte'}); return; } selectAttacker(inst); return; }
+    if(S.phase==='main1'||S.phase==='main2'){
+      if(inst.sick&&inst.faceDown){ toast('Ein in diesem Zug gesetztes Monster kann die Position noch nicht ändern.'); return; }
+      UI.sel=inst; UI.mode='pop'; render(); const anchor=qInst(inst); const items=[];
+      if(inst.faceDown) items.push({label:'🔄 Aufdecken (Flip)',fn:async()=>{ UI.sel=null; UI.mode='idle'; UI.busy=true; await animFlip(inst); log('me',`Du deckst ${inst.def.name} auf.`); UI.busy=false; render(); }});
+      items.push({label:inst.pos==='atk'?'🛡️ In Verteidigung wechseln':'⚔️ In Angriff wechseln',fn:()=>{ inst.pos=inst.pos==='atk'?'def':'atk'; inst.faceDown=false; UI.sel=null; UI.mode='idle'; log('me',`${inst.def.name} → ${inst.pos==='atk'?'Angriff':'Verteidigung'}.`); render(); }});
+      showPop(anchor,inst.def.name,items);
+    }
+  }
+}
+function selectAttacker(inst){
+  if(S.phase!=='battle') return;
+  if(inst.faceDown){ toast('Verdeckte Monster können nicht angreifen.'); return; }
+  if(inst.pos!=='atk'){ toast('Nur Monster in Angriffsposition greifen an.'); return; }
+  if(inst.sick){ toast('Dieses Monster ist erst nächsten Zug einsatzbereit.'); return; }
+  if(inst.attacked){ toast('Dieses Monster hat schon angegriffen.'); return; }
+  UI.sel=inst; UI.mode='attack'; snd('click'); render();
+}
+function onEmptyClick(owner,kind,i){ if(UI.mode==='attack'&&owner==='ai'&&kind==='monster'&&!S.ai.mons.some(x=>x)) directAttackClick(); else if(UI.mode==='attack'||UI.mode==='pop') clearSel(); }
+async function directAttackClick(){ if(UI.mode!=='attack'||S.ai.mons.some(x=>x)) return; const att=UI.sel; UI.mode='idle'; UI.sel=null; await playerAttack(att,null); }
+$('#oppLP').addEventListener('click',directAttackClick);
+function toast(msg){ const h=$('#hint'); h.innerHTML=`<b style="color:var(--danger)">${msg}</b>`; setTimeout(()=>{ if(S) setHint(); },2000); }
+
+/* ============================================================ KAMPF */
+async function playerAttack(att,targetIdx){ UI.busy=true; hidePreview(); render(); await attack('me',att,targetIdx); UI.busy=false; render(); }
+async function attack(who,att,targetIdx){
+  const opp=other(who); const O=S[opp]; const target=targetIdx==null?null:O.mons[targetIdx];
+  const targetEl=target?qInst(target):(opp==='me'?$('#myLP'):$('#oppLP'));
+  log(who,`${who==='me'?'Du greifst':'KI greift'} mit ${att.def.name} ${target?(target.faceDown?'ein verdecktes Monster':target.def.name):'direkt'} an.`);
+  att.attacked=true;
+  const tr=await trapCheck(opp,'attack',{attacker:att,defender:target});
+  if(tr==='negate'){ log(opp,'Der Angriff wurde negiert!'); render(); return; }
+  if(tr==='reflect'){ await animAttack(att,targetEl); await changeLP(who,-atkOf(att)); log(opp,`Reflektiert! ${who==='me'?'Du erhältst':'KI erhält'} ${atkOf(att)} Schaden.`); render(); await checkWin(); return; }
+  if(!target){ await banner('DIREKTER ANGRIFF!',who==='ai'?'opp':''); await animAttack(att,targetEl); await changeLP(opp,-atkOf(att)); log(who,`${att.def.name} trifft direkt: ${atkOf(att)} Schaden.`); render(); await checkWin(); return; }
+  await animAttack(att,targetEl);
+  if(target.faceDown){ await animFlip(target); log('sys',`Aufgedeckt: ${target.def.name}!`); await sleep(250); }
+  const A=atkOf(att);
+  if(target.pos==='atk'){
+    const D=atkOf(target);
+    if(A>D){ await animDestroy(target); O.gy.push(target.id); O.mons[targetIdx]=null; render(); await changeLP(opp,-(A-D)); log(who,`${att.def.name} (${A}) zerstört ${target.def.name} (${D}) – ${A-D} Schaden.`); }
+    else if(A<D){ await animDestroy(att); const me=S[who]; const ai=me.mons.indexOf(att); me.gy.push(att.id); if(ai>=0) me.mons[ai]=null; render(); await changeLP(who,-(D-A)); log(who,`${att.def.name} (${A}) unterliegt ${target.def.name} (${D}) – ${D-A} Rückschaden.`); }
+    else { await Promise.all([animDestroy(att),animDestroy(target)]); const me=S[who]; const ai=me.mons.indexOf(att); me.gy.push(att.id); if(ai>=0) me.mons[ai]=null; O.gy.push(target.id); O.mons[targetIdx]=null; log(who,`${att.def.name} und ${target.def.name} vernichten sich gegenseitig.`); }
+  } else {
+    const D=target.def.def;
+    if(A>D){ await animDestroy(target); O.gy.push(target.id); O.mons[targetIdx]=null; log(who,`${att.def.name} (${A}) durchbricht ${target.def.name} (DEF ${D}).`); }
+    else if(A<D){ render(); await changeLP(who,-(D-A)); log(who,`${att.def.name} (${A}) prallt an ${target.def.name} (DEF ${D}) ab – ${D-A} Rückschaden.`); }
+    else log(who,`${att.def.name} und ${target.def.name} (DEF) – nichts passiert.`);
+  }
+  render(); await checkWin();
+}
+
+/* ============================================================ FALLEN */
+async function trapCheck(owner,trigger,ctx){
+  const P=S[owner];
+  for(let i=0;i<P.spells.length;i++){
+    const t=P.spells[i]; if(!t||t.def.type!=='trap'||!t.faceDown||t.def.trigger!==trigger) continue;
+    if(t.setTurn===S.turnNo&&S.turn===owner) continue;
+    let use=false;
+    if(owner==='me'){ snd('click'); use=await dialog('Falle aktivieren?',`Der Gegner ${trigger==='attack'?`greift mit <b>${ctx.attacker.def.name}</b> (${atkOf(ctx.attacker)} ATK) ${ctx.defender?(ctx.defender.faceDown?'dein verdecktes Monster':`<b>${ctx.defender.def.name}</b>`):'<b>direkt</b>'} an`:`beschwört <b>${ctx.monster.def.name}</b>`}.`,[{label:'✅ Aktivieren',value:true,primary:true},{label:'Nein',value:false}],t); }
+    else use=aiTrapDecision(t,trigger,ctx);
+    if(!use) continue;
+    await animFlip(t); await animActivate(t,'trap'); await banner('FALLE AKTIVIERT!','trap'); log(owner,`${owner==='me'?'Du aktivierst':'KI aktiviert'} ${t.def.name}!`);
+    P.spells[i]=null; P.gy.push(t.id); render();
+    if(t.def.effect==='chainMonster'){ ctx.monster.chained=1; ctx.monster.sick=true; log(owner,`${ctx.monster.def.name} ist gefesselt – nächster Zug kein Angriff.`); render(); return 'chain'; }
+    return t.def.effect==='negateAttack'?'negate':'reflect';
+  }
+  return null;
+}
+function aiTrapDecision(t,trigger,ctx){
+  const d=S.diff; if(d===1) return Math.random()<0.45;
+  if(trigger==='summon') return ctx.monster.def.atk>=(d===2?1800:1700);
+  const A=atkOf(ctx.attacker); const def=ctx.defender;
+  const threat=def?(def.pos==='atk'?A-atkOf(def):(A>def.def.def?400:-1)):A;
+  if(d===2) return threat>=600||(threat>0&&Math.random()<0.4);
+  if(t.def.effect==='reflect') return (!def&&A>=1500)||(def&&def.pos==='atk'&&threat>=500&&A>=1700);
+  return threat>=300||(!def&&A>=1200)||(S.ai.lp<=A+500);
+}
+
+/* ============================================================ ZUGWECHSEL */
+async function endPlayerTurn(){
+  if(UI.busy||S.turn!=='me'||S.over) return;
+  if(S.me.hand.length>7){ UI.mode='discard'; UI.sel=null; hidePop(); render(); return; }
+  UI.busy=true; UI.mode='idle'; UI.sel=null; hidePop(); hidePreview(); S.phase='end'; music('calm'); render();
+  S.me.mons.forEach(m=>{ if(m){ m.bonus=0; m.attacked=false; } });
+  log('me','Du beendest deinen Zug.'); await sleep(300); await aiTurn();
+}
+async function discardFromHand(i){ const c=S.me.hand[i]; S.me.hand.splice(i,1); S.me.gy.push(c.id); log('me',`Du legst ${c.def.name} ab.`); UI.mode='idle'; render(); if(S.me.hand.length>7){ UI.mode='discard'; render(); } else await endPlayerTurn(); }
+async function startPlayerTurn(){
+  S.turn='me'; S.phase='draw'; S.turnNo++; S.summoned=false;
+  S.me.mons.forEach(m=>{ if(m){ if(m.chained>0){ m.chained--; m.sick=true; } else m.sick=false; } });
+  S.ai.mons.forEach(m=>{ if(m){ m.bonus=0; m.attacked=false; } });
+  await banner('DEIN ZUG'); UI.busy=false; render();
+}
+
+/* ============================================================ KI */
+async function aiTurn(){
+  S.turn='ai'; S.phase='draw'; S.summoned=false; render();
+  S.ai.mons.forEach(m=>{ if(m){ if(m.chained>0){ m.chained--; m.sick=true; } else m.sick=false; } });
+  await banner('ZUG DES GEGNERS','opp');
+  await draw('ai'); if(S.over) return; log('ai','KI zieht eine Karte.'); await sleep(400);
+  S.phase='main1'; render(); await aiMain(); if(S.over) return;
+  S.phase='battle'; render(); if(S.ai.mons.some(m=>m&&!m.sick&&!m.faceDown&&m.pos==='atk')) music('battle'); await aiBattle(); if(S.over) return;
+  music('calm'); S.phase='main2'; render(); await aiMain(true); if(S.over) return;
+  S.phase='end'; render();
+  while(S.ai.hand.length>7){ const c=S.ai.hand.pop(); S.ai.gy.push(c.id); log('ai',`KI legt ${c.def.name} ab.`); }
+  S.ai.mons.forEach(m=>{ if(m){ m.bonus=0; m.attacked=false; } });
+  log('ai','KI beendet den Zug.'); render(); await sleep(400); await startPlayerTurn();
+}
+const strongest=(arr,fn)=>arr.reduce((b,x,i)=>x&&(!b||fn(x)>fn(b.x))?{x,i}:b,null);
+async function aiMain(second=false){
+  const A=S.ai, d=S.diff;
+  const threat=()=>Math.max(0,...S.me.mons.filter(m=>m&&!m.faceDown).map(m=>m.pos==='atk'?atkOf(m):m.def.def));
+  const myBest=()=>Math.max(0,...A.mons.filter(m=>m&&!m.faceDown).map(atkOf));
+  const spellIdx=eff=>A.hand.findIndex(c=>c.def.type==='spell'&&c.def.effect===eff);
+  const wait=()=>sleep(350);
+  if(!second){
+    let i;
+    if((i=spellIdx('draw2'))>=0&&(d===1?Math.random()<0.5:A.hand.length<=4)){ await resolveSpell('ai',i,null); await wait(); }
+    if((i=spellIdx('heal1000'))>=0&&(d===1?Math.random()<0.3:A.lp<=4500)){ await resolveSpell('ai',i,null); await wait(); }
+    if((i=spellIdx('destroy1'))>=0&&S.me.mons.some(m=>m)){
+      const tgt=strongest(S.me.mons,m=>m.faceDown?500:(m.pos==='atk'?atkOf(m):m.def.def));
+      const val=m=>m.pos==='atk'?atkOf(m):m.def.def;
+      const worth=d===1?Math.random()<0.4:(tgt&&!tgt.x.faceDown&&val(tgt.x)>=(d===3?Math.max(1500,myBest()):1800));
+      if(worth){ await resolveSpell('ai',i,tgt.i); await wait(); }
+    }
+  }
+  if(!S.summoned){
+    const have=A.mons.filter(m=>m).length, free=A.mons.filter(m=>!m).length;
+    const cands=A.hand.map((c,i)=>({c,i,need:tribOf(c.def)})).filter(x=>x.c.def.type==='monster'&&x.need<=have&&(x.need>0||free>0));
+    if(cands.length){
+      let pick;
+      if(d===1) pick=cands[Math.floor(Math.random()*cands.length)];
+      else { const tribs=cands.filter(x=>x.need>0), normals=cands.filter(x=>x.need===0); const bestN=normals.sort((a,b)=>b.c.def.atk-a.c.def.atk)[0]; const bestT=tribs.sort((a,b)=>b.c.def.atk-a.c.def.atk)[0];
+        if(bestT&&(d===3?bestT.c.def.atk>threat()&&bestT.c.def.atk>myBest()+300:(threat()>=1800&&Math.random()<0.6))) pick=bestT; else pick=bestN||bestT; }
+      if(pick){
+        let pos='atk', fd=false; const atk=pick.c.def.atk, def=pick.c.def.def;
+        if(d>=2){ if(atk<threat()&&def>atk){ pos='def'; fd=d===3?Math.random()<0.6:Math.random()<0.4; } if(pick.c.def.effect==='draw1'&&d===3){ pos='def'; fd=false; } }
+        else if(def>atk&&Math.random()<0.5) pos='def';
+        const tribs=[]; if(pick.need>0){ const idx=A.mons.map((m,i)=>m?{i,v:atkOf(m)}:null).filter(x=>x).sort((a,b)=>a.v-b.v); for(let k=0;k<pick.need;k++) tribs.push(idx[k].i); }
+        await doSummon('ai',pick.i,pos,fd,tribs); await wait();
+      }
+    }
+  }
+  if(!second){ const i=spellIdx('equipATK700'); if(i>=0){ const best=strongest(A.mons,m=>m.faceDown||m.pos!=='atk'||m.sick?-1:atkOf(m)); if(best&&best.x.pos==='atk'&&!best.x.sick&&!best.x.faceDown){ const t=threat(); if(d===1?Math.random()<0.4:(atkOf(best.x)<=t&&atkOf(best.x)+700>t)||(d===3&&!S.me.mons.some(m=>m))){ await resolveSpell('ai',i,best.i); await wait(); } } } }
+  if(second||d>=2){ const ti=A.hand.findIndex(c=>c.def.type==='trap'); const fs=A.spells.findIndex(x=>!x); if(ti>=0&&fs>=0&&(d===1?Math.random()<0.5:true)){ const inst=A.hand[ti]; A.hand.splice(ti,1); inst.faceDown=true; inst.setTurn=S.turnNo; A.spells[fs]=inst; await flyCard($('#oppHand'),$$('#oppSpells .slot')[fs],inst,true); log('ai','KI setzt eine Karte verdeckt.'); render(); await wait(); } }
+  if(d===3){ A.mons.forEach(m=>{ if(m&&!m.faceDown&&m.pos==='def'&&!m.sick&&!S.me.mons.some(x=>x)){ m.pos='atk'; log('ai',`KI wechselt ${m.def.name} in Angriff.`); } }); render(); }
+}
+async function aiBattle(){
+  const A=S.ai, d=S.diff;
+  const attackers=A.mons.filter(m=>m&&!m.sick&&!m.faceDown&&m.pos==='atk'&&!m.attacked);
+  for(const att of attackers){
+    if(S.over) return;
+    const targets=S.me.mons.map((m,i)=>m?{m,i}:null).filter(x=>x); const av=atkOf(att);
+    if(!targets.length){ await attack('ai',att,null); await sleep(300); continue; }
+    let pick=null;
+    if(d===1){ pick=Math.random()<0.8?targets[Math.floor(Math.random()*targets.length)]:null; if(!pick) continue; }
+    else { let best=null,bs=-Infinity;
+      for(const t of targets){ const m=t.m; let sc; if(m.faceDown) sc=d===3?(av>=1600?300:-200):0; else if(m.pos==='atk'){ const diff=av-atkOf(m); sc=diff>0?1000+diff:(diff===0?(d===3?-100:100):diff*2); } else { const diff=av-m.def.def; sc=diff>0?600+diff:diff*2-200; } if(sc>bs){bs=sc;best=t;} }
+      if(bs<0&&d>=2) continue; pick=best; }
+    await attack('ai',att,pick.i); await sleep(300);
+  }
+}
+
+/* ============================================================ ENDE */
+async function checkWin(){ if(S.over) return; if(S.me.lp<=0) await endGame('lose','Deine Lebenspunkte sind auf 0.'); else if(S.ai.lp<=0) await endGame('win','Die Lebenspunkte des Gegners sind auf 0.'); }
+async function endGame(result,reason){
+  if(S.over) return; S.over=true; UI.busy=true; render(); log('sys',reason); music(null); snd(result==='win'?'win':'lose'); flash();
+  await banner(result==='win'?'SIEG!':'NIEDERLAGE',result);
+  const again=await dialog(result==='win'?'🏆 Du hast gewonnen!':'💀 Du hast verloren',reason,[{label:'Neues Duell',value:true,primary:true},{label:'Feld ansehen',value:false}]);
+  if(again) location.reload();
+}
+
+/* ============================================================ BUTTONS */
+$('#primaryBtn').addEventListener('click',()=>{ if(UI.busy||S.turn!=='me'||S.over) return; hidePop(); UI.sel=null; UI.mode='idle';
+  if(S.phase==='main1'){ S.phase='battle'; snd('click'); music('battle'); banner('KAMPFPHASE'); } else if(S.phase==='battle'){ S.phase='main2'; snd('click'); music('calm'); } else if(S.phase==='main2'||S.phase==='end'){ endPlayerTurn(); return; } render(); });
+$('#endTurnBtn').addEventListener('click',endPlayerTurn);
+$('#myDeck').addEventListener('click',playerDraw);
+$('#helpBtn').addEventListener('click',()=>$('#help').classList.add('show'));
+$('#fsBtn').addEventListener('click',()=>{ const d=document.documentElement; if(!document.fullscreenElement){ (d.requestFullscreen||d.webkitRequestFullscreen||function(){}).call(d); } else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); } setTimeout(fit,300); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&UI.mode!=='discard') clearSel(); });
+
+/* ============================================================ MENÜ */
+let selDeck=null, selDiff=null; const chk=()=>$('#startBtn').disabled=!(selDeck&&selDiff);
+$$('#deckChoice button').forEach(b=>b.addEventListener('click',()=>{ $$('#deckChoice button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); selDeck=b.dataset.v; chk(); }));
+$$('#diffChoice button').forEach(b=>b.addEventListener('click',()=>{ $$('#diffChoice button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); selDiff=+b.dataset.v; chk(); }));
+$('#startBtn').addEventListener('click',()=>{ $('#menu').classList.remove('show'); snd('click'); music('calm'); newGame(selDeck,selDiff); });
+$('#musBtn').addEventListener('click',musicToggle);
+if('serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>

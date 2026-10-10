@@ -1,0 +1,17 @@
+{
+  "name": "Duellmeister – Wasser vs. Feuer",
+  "short_name": "Duellmeister",
+  "description": "Kartenduell im klassischen Stil: Wasser gegen Feuer, 3 KI-Stufen, 8000 Lebenspunkte.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#03050c",
+  "theme_color": "#03050c",
+  "lang": "de",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "img/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
