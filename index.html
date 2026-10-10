@@ -21,7 +21,10 @@
   button { font-family:inherit; }
 
   /* ================= STAGE (1536 x 1024, skaliert) ================= */
-  #vp { position:fixed; inset:0; overflow:hidden; width:100vw; height:100dvh; }
+  #vp { position:fixed; inset:0; overflow:hidden; width:100vw; height:100dvh; background:#03050c; }
+  #vp::before { content:''; position:absolute; inset:-40px; background:url(img/board.png) center/cover no-repeat; filter:blur(22px) brightness(.5) saturate(1.2); }
+  #vp::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(3,5,12,.6)); }
+  #stage { z-index:1; }
   #stage {
     position:absolute; left:0; top:0; width:1536px; height:1024px;
     background:url(img/board.png) no-repeat 0 0 / 1536px 1024px;
@@ -76,7 +79,9 @@
   #stage.shake { animation:shake .4s; }
 
   /* Hand */
-  #handBg { left:336px; top:756px; width:884px; height:188px; background:#040710; border-radius:10px; }
+  #handBg { left:336px; top:756px; width:968px; height:188px; background:#040710; border-radius:10px; }
+  #btnCover1 { left:596px; top:938px; width:348px; height:72px; background:#07040c; }
+  #btnCover2 { left:990px; top:938px; width:320px; height:72px; background:#040814; }
   #hand { left:338px; top:766px; width:880px; height:168px; display:flex; align-items:center; justify-content:center; gap:14px; }
   #hand .card { height:168px; width:112px; flex:none; }
   #hand .card:hover { transform:translateY(-14px) scale(1.08); z-index:5; }
@@ -305,6 +310,7 @@
   <!-- Aktionen -->
   <div class="cover" id="phaseLbl">Hauptphase 1</div>
   <div class="lpbox" id="myLP"><span class="lpv" id="myLPv">8000</span><span class="lpl">DEINE LP</span></div>
+  <div class="cover" id="btnCover1"></div><div class="cover" id="btnCover2"></div>
   <button class="abtn" id="primaryBtn">Zur Kampfphase ▶</button>
   <button class="abtn" id="endTurnBtn">Zug beenden</button>
   <button class="abtn" id="helpBtn" title="Regeln">?</button>
