@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Duellmeister</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#03050c">
@@ -20,6 +20,7 @@
   button { font-family:inherit; }
 
   /* ================= STAGE (1536 x 1024, skaliert) ================= */
+  #vp { position:fixed; inset:0; overflow:hidden; width:100vw; height:100dvh; }
   #stage {
     position:absolute; left:0; top:0; width:1536px; height:1024px;
     background:url(img/board.png) no-repeat 0 0 / 1536px 1024px;
@@ -270,7 +271,7 @@
 </head>
 <body>
 
-<div id="stage">
+<div id="vp"><div id="stage">
   <!-- Gegner -->
   <div class="cover" id="oppName">KI</div>
   <div class="cover" id="oppHand"></div>
@@ -310,7 +311,7 @@
   <button class="abtn" id="musBtn" title="Musik an/aus">🎵</button>
 
   <div id="fx"></div>
-</div>
+</div></div>
 
 <div id="pop"></div>
 <div id="zoom"><div class="zcard" id="zcard"></div><div class="zside" id="zside"></div></div>
