@@ -15,7 +15,8 @@
 <style>
   :root { --gold:#ffcf5a; --water:#46b6ff; --fire:#ff5e3a; --spell:#3fe08a; --trap:#e06cff; --danger:#ff3b3b; --ok:#4ddc5a; --text:#e9eef8; --muted:#8b98b8; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  html, body { height:100%; }
+  html, body { height:100%; touch-action:none; overscroll-behavior:none; }
+  #menu .mwrap, #fullLog, .dialog, #zoom { touch-action:pan-y; }
   body { font-family:'Segoe UI', system-ui, -apple-system, sans-serif; background:#03050c; color:var(--text); overflow:hidden; user-select:none; -webkit-tap-highlight-color:transparent; }
   button { font-family:inherit; }
 
@@ -420,11 +421,11 @@ function log(who,msg){ LOG.push({who,msg}); const m=$('#miniLog'); m.innerHTML=L
 $('#miniLog').addEventListener('click',()=>{ $('#fullLog').innerHTML=LOG.map(x=>`<div class="l ${x.who}">${x.msg}</div>`).join(''); $('#logOv').classList.add('show'); const f=$('#fullLog'); f.scrollTop=f.scrollHeight; });
 
 /* Skalierung der Bühne */
-function vpSize(){ const vv=window.visualViewport; const w=Math.round(vv?vv.width:innerWidth), h=Math.round(vv?vv.height:innerHeight); return {w,h}; }
+function vpSize(){ const d=document.documentElement; const w=Math.round(d.clientWidth||innerWidth), h=Math.round(d.clientHeight||innerHeight); return {w,h}; }
 let lastVP='';
 function fit(){ const {w,h}=vpSize(); const s=Math.min(w/1536, h/1024); UI.scale=s; STAGE.style.transform=`scale(${s})`; STAGE.style.left=((w-1536*s)/2)+'px'; STAGE.style.top=((h-1024*s)/2)+'px'; const vp=document.getElementById('vp'); vp.style.width=w+'px'; vp.style.height=h+'px'; lastVP=w+'x'+h; }
 addEventListener('resize',fit); addEventListener('orientationchange',()=>{ fit(); setTimeout(fit,300); setTimeout(fit,800); });
-if(window.visualViewport){ visualViewport.addEventListener('resize',fit); visualViewport.addEventListener('scroll',fit); }
+
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) fit(); });
 setInterval(()=>{ const {w,h}=vpSize(); if(w+'x'+h!==lastVP) fit(); },500);
 fit(); window.scrollTo(0,0);
@@ -926,6 +927,11 @@ $$('#diffChoice button').forEach(b=>b.addEventListener('click',()=>{ $$('#diffCh
 $('#startBtn').addEventListener('click',()=>{ $('#menu').classList.remove('show'); snd('click'); music('calm'); newGame(selDeck,selDiff); });
 $('#musBtn').addEventListener('click',musicToggle);
 if('serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+// Pinch-/Doppeltipp-Zoom verhindern
+document.addEventListener('touchstart',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
+let lastTouch=0; document.addEventListener('touchend',e=>{ const n=Date.now(); if(n-lastTouch<300) e.preventDefault(); lastTouch=n; },{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('wheel',e=>{ if(e.ctrlKey) e.preventDefault(); },{passive:false});
 </script>
 </body>
 </html>
